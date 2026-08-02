@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "statusline-workspaces",
+  "name": "Hermes Statusline & Workspaces",
+  "version": "0.1.0",
+  "entrypoint": "plugin.js",
+  "compatibility": {
+    "runtime": "Hermes Desktop plugin SDK",
+    "status": "scaffold-only",
+    "requiredFutureCapabilities": [
+      "supported session.actions contributions",
+      "public workspace discovery and mutation API"
+    ]
+  }
+}
