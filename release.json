@@ -1,18 +1,19 @@
 {
   "schemaVersion": 1,
   "id": "statusline-workspaces",
-  "name": "Hermes Statusline & Workspaces",
-  "version": "0.1.0",
+  "name": "Hermes Statusline",
+  "version": "0.2.0",
   "entrypoint": "plugin.js",
   "compatibility": {
     "runtime": "Hermes Desktop plugin SDK",
+    "minimumHermesVersion": "0.19.1",
     "status": "ready",
     "requires": [
-      "SESSION_ACTIONS_AREA",
-      "host.selectWorkspaceDirectory",
-      "host.setSessionWorkspace",
-      "session.workspace.set",
-      "usage.providers"
+      "STATUSBAR_AREAS",
+      "useQuery",
+      "useValue",
+      "usage.bars",
+      "session.context_breakdown"
     ]
   }
 }

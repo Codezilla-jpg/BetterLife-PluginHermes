@@ -1,14 +1,14 @@
 {
   "name": "hermes-statusline-workspaces",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "description": "Hermes Desktop provider/context statusline and session workspace action",
+  "description": "Personal Hermes Desktop statusline for account usage, context and local time",
   "type": "module",
   "scripts": {
     "check": "node --check plugin.js",
     "test": "node --experimental-vm-modules tests/smoke.mjs",
     "package": "python3 scripts/package.py",
-    "verify": "npm run check && npm test && npm run package && cd dist && sha256sum -c statusline-workspaces-hermes-desktop-v0.1.0.zip.sha256"
+    "verify": "npm run check && npm test && npm run package && cd dist && sha256sum -c statusline-workspaces-hermes-desktop-v0.2.0.zip.sha256"
   },
   "engines": {
     "node": ">=22 <25"
