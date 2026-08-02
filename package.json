@@ -2,13 +2,13 @@
   "name": "hermes-statusline-workspaces",
   "version": "0.1.0",
   "private": true,
-  "description": "Scaffold for Hermes Desktop statusline and workspace contributions",
+  "description": "Hermes Desktop provider/context statusline and session workspace action",
   "type": "module",
   "scripts": {
     "check": "node --check plugin.js",
     "test": "node --experimental-vm-modules tests/smoke.mjs",
     "package": "python3 scripts/package.py",
-    "verify": "npm run check && npm test && npm run package"
+    "verify": "npm run check && npm test && npm run package && cd dist && sha256sum -c statusline-workspaces-hermes-desktop-v0.1.0.zip.sha256"
   },
   "engines": {
     "node": ">=22 <25"

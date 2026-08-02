@@ -4,12 +4,16 @@
 
 ### Added
 
-- Initial Hermes Desktop disk-plugin repository scaffold.
-- Three inert `statusBar.right` placeholder contributions for provider limits, context usage and local time.
-- One inert `session.actions` placeholder for changing workspaces.
+- Codex account-window and Grok/xAI response-rate-limit status with exact local reset times.
+- Active-session context percentage, token budget and category details.
+- Local clock refreshed every minute.
+- `session.actions` contribution for a native, profile-routed workspace change.
+- Event-driven refresh plus bounded 60-second polling fallback.
+- Full cleanup of timers, subscriptions, event listeners and contributions on unload.
 - Isolated VM smoke test and deterministic ZIP/SHA-256 packaging.
 
-### Limitations
+### Safety
 
-- No provider API calls, context calculation, clock timer or workspace mutation yet.
-- Required public Desktop SDK capabilities are not available or finalized for this scaffold.
+- No direct provider calls or credential access from the plugin.
+- Grok API response limits are never mislabeled as SuperGrok account quotas.
+- Busy live sessions reject workspace changes.

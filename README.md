@@ -1,23 +1,46 @@
 # Hermes Statusline & Workspaces
 
-Scaffold für ein eigenständiges Hermes-Desktop-Disk-Plugin. Version: **0.1.0**.
+Hermes-Desktop-Plugin für kompakte Provider- und Kontextdaten in der Statusleiste sowie einen sicheren Workspace-Wechsel im Drei-Punkte-Menü gespeicherter Sessions.
 
-## Stand von Task 1
+## Funktionen
 
-Das Plugin registriert ausschließlich vier statische Platzhalterbeiträge:
+- **Codex-/Grok-Limits:** zeigt die höchste Auslastung der verfügbaren Account- oder API-Limitfenster. Das Menü nennt alle bekannten Fenster, Restkontingente und lokale Reset-Zeitpunkte.
+- **Kontext:** zeigt die Auslastung der aktiven Session und im Menü Tokenbudget sowie die größten Kontextkategorien.
+- **Lokale Uhr:** minutenaktuelle Uhrzeit mit vollständigem Datum im Tooltip.
+- **Workspace ändern …:** öffnet den nativen lokalen oder Remote-Verzeichnis-Picker und persistiert das neue CWD für die ausgewählte gespeicherte Session.
+- Alle drei Statusleisten-Einträge lassen sich über das Kontextmenü der Statusleiste ausblenden.
 
-- `provider-limits` in `statusBar.right`
-- `context-usage` in `statusBar.right`
-- `local-clock` in `statusBar.right`
-- `change-workspace` in `session.actions`
+## Daten- und Sicherheitsgrenzen
 
-Es führt noch **keine Providerabfrage** aus, berechnet noch keine echte Kontextauslastung, startet keinen Uhr-Timer und verändert keinen Workspace.
+- Das Plugin ruft Provider niemals direkt auf und liest keine Credentials. Es verwendet ausschließlich die Gateway-RPCs `usage.providers` und `session.context_breakdown`.
+- Codex-Accountdaten stammen aus Hermes' bestehender Account-Usage-Integration.
+- Grok zeigt nur belastbare Telemetrie aus xAI-Antwortheadern. Ein SuperGrok-/Consumer-Abo-Kontingent wird **nicht** aus API-Rate-Limits abgeleitet. Solange noch kein xAI-Response-Limit beobachtet wurde, zeigt das Menü „no limit telemetry yet“.
+- Provider- und Kontextdaten werden alle 60 Sekunden sowie nach relevanten Gateway-Ereignissen aktualisiert.
+- Ein Workspace-Wechsel wird vom Backend abgelehnt, wenn die Session gerade arbeitet; ein laufender Turn wechselt sein CWD dadurch nie unbemerkt.
 
-## SDK-Voraussetzung
+## Voraussetzungen
 
-Dieses Repository ist vorerst nur ein verifiziertes Scaffold und noch keine Behauptung eines installierbaren, funktionsfähigen Releases. Für die geplante Funktionalität braucht Hermes Desktop später eine öffentlich unterstützte SDK-Capability für `session.actions` sowie Workspace-Ermittlung und -Mutation. Bis diese Schnittstellen feststehen und gegen einen realen Desktop-Loader geprüft sind, bleiben die Beiträge absichtlich inert.
+Benötigt eine Hermes-Desktop-Version mit:
 
-## Entwicklung
+- `SESSION_ACTIONS_AREA` (`session.actions`)
+- `host.selectWorkspaceDirectory(...)`
+- `host.setSessionWorkspace(...)`
+- Gateway-RPC `session.workspace.set`
+- Gateway-RPC `usage.providers`
+
+Ältere Desktop-/Gateway-Versionen laden das Plugin nicht vollständig; die Statusitems zeigen dann einen klaren „unavailable“-Zustand und die Workspace-Aktion darf nicht angeboten werden.
+
+## Installation
+
+Entpacke die Runtime-Dateien nach:
+
+```text
+$HERMES_HOME/desktop-plugins/statusline-workspaces/
+```
+
+Mindestens `plugin.js` und `release.json` müssen dort liegen. Danach in Hermes Desktop **⌘K → Reload desktop plugins** ausführen oder die App neu starten.
+
+## Entwicklung und Prüfung
 
 Voraussetzung: Node.js `>=22 <25` und Python 3.
 
@@ -28,7 +51,7 @@ npm run package
 npm run verify
 ```
 
-Der Smoke-Test lädt `plugin.js` in einem isolierten Node-VM-Kontext. Nur `@hermes/plugin-sdk`, `react` und `react/jsx-runtime` wären als spätere Imports zulässig; andere Imports weist der Loader zurück.
+Der Smoke-Test lädt `plugin.js` in einem isolierten Node-VM-Kontext und verifiziert Formatter, Polling, Event-Reaktionen, Workspace-Mutation und vollständiges Cleanup beim Deaktivieren.
 
 ## Paket
 
@@ -37,7 +60,7 @@ Der Smoke-Test lädt `plugin.js` in einem isolierten Node-VM-Kontext. Nur `@herm
 - `dist/statusline-workspaces-hermes-desktop-v0.1.0.zip`
 - `dist/statusline-workspaces-hermes-desktop-v0.1.0.zip.sha256`
 
-Das Archiv enthält nur Runtime-Dateien und Dokumentation, keine Tests, Build-Skripte, Secrets oder lokalen absoluten Pfade. Das ZIP ist ein Entwicklungsartefakt des Scaffolds und derzeit keine Installierbarkeitszusage.
+Das Archiv enthält nur Runtime-Dateien und Dokumentation, keine Tests, Build-Skripte, Secrets oder lokalen absoluten Pfade.
 
 ## Lizenz
 

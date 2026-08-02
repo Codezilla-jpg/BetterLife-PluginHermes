@@ -6,10 +6,13 @@
   "entrypoint": "plugin.js",
   "compatibility": {
     "runtime": "Hermes Desktop plugin SDK",
-    "status": "scaffold-only",
-    "requiredFutureCapabilities": [
-      "supported session.actions contributions",
-      "public workspace discovery and mutation API"
+    "status": "ready",
+    "requires": [
+      "SESSION_ACTIONS_AREA",
+      "host.selectWorkspaceDirectory",
+      "host.setSessionWorkspace",
+      "session.workspace.set",
+      "usage.providers"
     ]
   }
 }
