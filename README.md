@@ -1,36 +1,59 @@
-# Hermes Statusline
+# Hermes Pulsebar
 
-Persönliches Hermes-Desktop-Plugin mit drei kompakten Statusleistenanzeigen:
+Kompakte Hermes-Desktop-Statusleiste für echte Provider-Quotas, Kontext und Uhrzeit.
 
-- **Account usage** — Nous-Plan und verfügbares Guthaben über `usage.bars`.
-- **Context usage** — Kontextverbrauch der aktiven Sitzung über `session.context_breakdown`.
-- **Local clock** — lokale Uhrzeit, minütlich aktualisiert.
+## Anzeigen
 
-## Warum 0.2.0?
+- **Codex** — Account-Limits aus Hermes’ vorhandenem `openai-codex`-Usage-Client.
+- **Grok** — SuperGrok-Quota über den Grok-CLI-Billing-Endpunkt.
+- **Ctx** — Kontextverbrauch der aktiven Hermes-Session.
+- **Uhrzeit** — lokale Systemzeit.
 
-Version 0.1.0 hing von experimentellen Core-Erweiterungen ab (`SESSION_ACTIONS_AREA`, Workspace-Hostmethoden und `usage.providers`). Diese Erweiterungen sind nicht Teil der aktuellen offiziellen Hermes-Desktop-SDK. Version 0.2.0 verwendet ausschließlich APIs aus Hermes Agent 0.19.1 und lädt deshalb ohne gepatchten Desktop-Core.
+Die frühere Nous-Anzeige wurde entfernt. `usage.bars` beschreibt das Hermes-/Nous-Billing und ist keine Codex- oder Grok-Quota.
 
-Die Workspace-Umschaltung wurde bewusst entfernt. Arbeitsbereiche werden weiterhin über die nativen Hermes-Funktionen verwaltet.
+## Architektur
+
+Das Paket besteht aus zwei kleinen Teilen:
+
+1. `plugin.js` rendert die Statusleisten-Chips mit der offiziellen Desktop-Plugin-SDK.
+2. `backend/dashboard/plugin_api.py` liest Provider-Quotas serverseitig über bereits vorhandene Hermes-OAuth-Anmeldungen.
+
+Tokens und Account-Identitäten werden nie an den Desktop-Renderer ausgegeben. Der Backend-Endpunkt liefert nur Prozentwerte, Zeitfenster und Reset-Zeitpunkte.
+
+## Datenquellen
+
+- Codex: `agent.account_usage.fetch_account_usage("openai-codex")`.
+- Grok: `https://cli-chat-proxy.grok.com/v1/billing` mit `xai-oauth`.
+- Kontext: `session.context_breakdown`.
+
+Falls ein Provider nicht angemeldet oder sein Billing-Endpunkt nicht erreichbar ist, zeigt Pulsebar ehrlich `Codex —` beziehungsweise `Grok —` statt Nous-Werte falsch umzubenennen.
 
 ## Installation
 
-```text
-$HERMES_HOME/desktop-plugins/statusline-workspaces/plugin.js
+### Hermes-Host
+
+```bash
+mkdir -p ~/.hermes/plugins/statusline-workspaces/dashboard
+cp backend/dashboard/{manifest.json,plugin_api.py} ~/.hermes/plugins/statusline-workspaces/dashboard/
+hermes plugins enable statusline-workspaces
 ```
 
-Der Ordnername muss der Plugin-ID `statusline-workspaces` entsprechen. Hermes Desktop lädt Änderungen automatisch; alternativ über die Command Palette **Reload desktop plugins** ausführen.
+Danach den Hermes-Gateway-/Dashboard-Prozess neu starten.
+
+### Hermes Desktop
+
+```bash
+mkdir -p ~/.hermes/desktop-plugins/statusline-workspaces
+cp plugin.js ~/.hermes/desktop-plugins/statusline-workspaces/plugin.js
+```
+
+Hermes Desktop lädt Dateiänderungen automatisch; andernfalls die App einmal neu starten.
 
 ## Bedienung
 
-- **Account usage** zeigt Plan und verfügbares Nous-Guthaben; Hover zeigt Verbrauch und Erneuerung.
-- **Ctx** zeigt den aktiven Kontextverbrauch; Hover zeigt Tokenbudget und Kategorien.
+- Hover über **Codex** oder **Grok** zeigt einzelne Zeitfenster und Reset-Zeiten.
+- Hover über **Ctx** zeigt Tokenbudget und Kategorien.
 - Rechtsklick auf die Statusleiste blendet einzelne Anzeigen ein oder aus.
-
-## Datenschutz
-
-- Keine direkte Provider-Abfrage aus dem Renderer.
-- Kein Zugriff auf Tokens, API-Keys oder Account-IDs.
-- Nur lesende Gateway-RPCs.
 
 ## Entwicklung
 
@@ -38,4 +61,4 @@ Der Ordnername muss der Plugin-ID `statusline-workspaces` entsprechen. Hermes De
 npm run verify
 ```
 
-Prüft Syntax, SDK-Mock, Lifecycle-Cleanup, deterministische Paketierung und SHA-256-Sidecar.
+Erzeugt zusätzlich ein deterministisches ZIP samt SHA-256-Datei unter `dist/`.

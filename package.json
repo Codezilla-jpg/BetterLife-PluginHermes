@@ -1,14 +1,14 @@
 {
-  "name": "hermes-statusline-workspaces",
-  "version": "0.2.0",
+  "name": "hermes-pulsebar",
+  "version": "0.3.0",
   "private": true,
-  "description": "Personal Hermes Desktop statusline for account usage, context and local time",
+  "description": "Hermes Desktop statusline for Codex/Grok quotas, context and local time",
   "type": "module",
   "scripts": {
-    "check": "node --check plugin.js",
-    "test": "node --experimental-vm-modules tests/smoke.mjs",
+    "check": "node --check plugin.js && python3 -m py_compile backend/dashboard/plugin_api.py",
+    "test": "node --experimental-vm-modules tests/smoke.mjs && python3 -m unittest tests/test_backend.py",
     "package": "python3 scripts/package.py",
-    "verify": "npm run check && npm test && npm run package && cd dist && sha256sum -c statusline-workspaces-hermes-desktop-v0.2.0.zip.sha256"
+    "verify": "npm run check && npm test && npm run package && cd dist && sha256sum -c hermes-pulsebar-v0.3.0.zip.sha256"
   },
   "engines": {
     "node": ">=22 <25"

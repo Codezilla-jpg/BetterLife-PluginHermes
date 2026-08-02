@@ -11,10 +11,20 @@ from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 ROOT = Path(__file__).resolve().parent.parent
 RELEASE = json.loads((ROOT / "release.json").read_text(encoding="utf-8"))
 PLUGIN_ID = "statusline-workspaces"
+ARCHIVE_SLUG = "hermes-pulsebar"
 VERSION = RELEASE["version"]
-FILES = ("plugin.js", "release.json", "README.md", "CHANGELOG.md", "LICENSE")
+FILES = (
+    "plugin.yaml",
+    "plugin.js",
+    "release.json",
+    "backend/dashboard/manifest.json",
+    "backend/dashboard/plugin_api.py",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE",
+)
 DIST = ROOT / "dist"
-ARCHIVE = DIST / f"{PLUGIN_ID}-hermes-desktop-v{VERSION}.zip"
+ARCHIVE = DIST / f"{ARCHIVE_SLUG}-v{VERSION}.zip"
 FIXED_TIME = (2020, 1, 1, 0, 0, 0)
 
 

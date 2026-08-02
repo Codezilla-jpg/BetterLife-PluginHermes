@@ -1,11 +1,11 @@
-import { host, STATUSBAR_AREAS, useQuery, useValue } from '@hermes/plugin-sdk'
+import { STATUSBAR_AREAS, host, useQuery, useValue } from '@hermes/plugin-sdk'
 import { useEffect, useState } from 'react'
 import { jsx } from 'react/jsx-runtime'
 
 const ID = 'statusline-workspaces'
-const NAME = 'Hermes Statusline'
-const VERSION = '0.2.0'
-const USAGE_POLL_MS = 5 * 60_000
+const NAME = 'Hermes Pulsebar'
+const VERSION = '0.3.0'
+const PROVIDER_POLL_MS = 5 * 60_000
 const CONTEXT_POLL_MS = 60_000
 const CLOCK_POLL_MS = 60_000
 const CHIP_CLASS =
@@ -29,28 +29,40 @@ const count = value =>
 
 const localTime = date => new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' }).format(date)
 
-function usageStatusItem(payload) {
-  const available = payload?.available === true
-  const remaining = payload?.total_spendable_display ?? payload?.subscription_remaining_display
-  const plan = payload?.plan_name || 'Nous'
+const localDateTime = value => {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  return new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  }).format(date)
+}
+
+function providerStatusItem(payload, providerId, providerLabel) {
+  const provider = Array.isArray(payload?.providers)
+    ? payload.providers.find(item => item?.id === providerId)
+    : null
+  const windows = Array.isArray(provider?.windows) ? provider.windows : []
+  const percentages = windows.map(item => clampPercent(item?.used_percent)).filter(value => value !== null)
+  const used = percentages.length ? Math.max(...percentages) : null
   const details = []
 
-  if (available && payload?.plan_bar) {
-    const bar = payload.plan_bar
-    details.push(`${plan}: ${bar.remaining_display} / ${bar.total_display} · ${percent(bar.pct_used)} used`)
+  if (provider?.plan) details.push(`Plan: ${provider.plan}`)
+  for (const window of windows) {
+    const reset = localDateTime(window?.reset_at)
+    const suffix = reset ? ` · resets ${reset}` : ''
+    details.push(`${window?.label || 'Quota'}: ${percent(window?.used_percent)} used${suffix}`)
+    if (window?.detail) details.push(String(window.detail))
   }
-  if (available && payload?.topup_bar) {
-    details.push(`Top-up: ${payload.topup_bar.remaining_display} available`)
+  for (const detail of Array.isArray(provider?.details) ? provider.details : []) {
+    if (detail) details.push(String(detail))
   }
-  if (available && payload?.renews_display) {
-    details.push(`Renews ${payload.renews_display}`)
-  }
-  if (!details.length) {
-    details.push(available ? 'No paid usage balance' : 'Nous usage unavailable')
-  }
+  if (!details.length) details.push(provider?.reason || `${providerLabel} quota unavailable`)
 
   return {
-    label: remaining ? `${plan} ${remaining}` : available ? `${plan} free` : 'Usage —',
+    label: `${providerLabel} ${percent(used)}`,
     title: details.join('\n')
   }
 }
@@ -84,14 +96,15 @@ function StatusChip({ label, title }) {
   return jsx('span', { className: CHIP_CLASS, title, children: label })
 }
 
-function UsageChip() {
+function ProviderChip({ providerId, providerLabel, rest }) {
   const query = useQuery({
-    queryKey: [ID, 'usage'],
-    queryFn: () => host.request('usage.bars'),
-    refetchInterval: USAGE_POLL_MS,
-    retry: false
+    queryKey: [ID, 'provider-usage'],
+    queryFn: () => rest('/usage', { timeoutMs: 35_000 }),
+    refetchInterval: PROVIDER_POLL_MS,
+    retry: false,
+    staleTime: 60_000
   })
-  return jsx(StatusChip, { ...usageStatusItem(query.data) })
+  return jsx(StatusChip, { ...providerStatusItem(query.data, providerId, providerLabel) })
 }
 
 function ContextChip() {
@@ -124,13 +137,23 @@ const plugin = {
     console.info(`[${ID}] loaded v${VERSION}`)
     ctx.registerMany([
       {
-        id: 'account-usage',
+        id: 'codex-usage',
+        area: STATUSBAR_AREAS.right,
+        order: 90,
+        data: {
+          id: 'codex-usage',
+          render: () => jsx(ProviderChip, { providerId: 'codex', providerLabel: 'Codex', rest: ctx.rest }),
+          toggleLabel: 'Codex usage'
+        }
+      },
+      {
+        id: 'grok-usage',
         area: STATUSBAR_AREAS.right,
         order: 100,
         data: {
-          id: 'account-usage',
-          render: () => jsx(UsageChip, {}),
-          toggleLabel: 'Account usage'
+          id: 'grok-usage',
+          render: () => jsx(ProviderChip, { providerId: 'grok', providerLabel: 'Grok', rest: ctx.rest }),
+          toggleLabel: 'Grok usage'
         }
       },
       {
@@ -157,5 +180,5 @@ const plugin = {
   }
 }
 
-export { VERSION, clampPercent, contextStatusItem, clockStatusItem, usageStatusItem }
+export { VERSION, clampPercent, contextStatusItem, clockStatusItem, providerStatusItem }
 export default plugin

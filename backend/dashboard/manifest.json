@@ -1,0 +1,7 @@
+{
+  "name": "statusline-workspaces",
+  "label": "Hermes Pulsebar",
+  "description": "Provider quota backend for the Hermes Pulsebar desktop plugin.",
+  "version": "0.3.0",
+  "api": "plugin_api.py"
+}

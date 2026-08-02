@@ -9,7 +9,8 @@ const pluginPath = path.join(repoRoot, 'plugin.js')
 const source = fs.readFileSync(pluginPath, 'utf8')
 const registrations = []
 
-assert.doesNotMatch(source, /SESSION_ACTIONS_AREA|selectWorkspaceDirectory|setSessionWorkspace|usage\.providers|ctx\.onDispose/)
+assert.doesNotMatch(source, /SESSION_ACTIONS_AREA|selectWorkspaceDirectory|setSessionWorkspace|usage\.bars|ctx\.onDispose/)
+assert.match(source, /ctx\.rest/)
 assert.match(source, /useQuery/)
 assert.match(source, /useEffect/)
 
@@ -20,7 +21,7 @@ const sdk = {
     request: async () => ({ available: false })
   },
   STATUSBAR_AREAS: { left: 'statusBar.left', right: 'statusBar.right' },
-  useQuery: options => ({ data: options.enabled === false ? undefined : { available: false } }),
+  useQuery: options => ({ data: options.enabled === false ? undefined : { providers: [] } }),
   useValue: atom => atom.get()
 }
 const react = {
@@ -59,10 +60,18 @@ await mod.link(specifier => {
 })
 await mod.evaluate()
 
-const { clampPercent, clockStatusItem, contextStatusItem, default: plugin, usageStatusItem, VERSION } = mod.namespace
-assert.equal(VERSION, '0.2.0')
+const {
+  clampPercent,
+  clockStatusItem,
+  contextStatusItem,
+  default: plugin,
+  providerStatusItem,
+  VERSION
+} = mod.namespace
+
+assert.equal(VERSION, '0.3.0')
 assert.equal(plugin.id, 'statusline-workspaces')
-assert.equal(plugin.name, 'Hermes Statusline')
+assert.equal(plugin.name, 'Hermes Pulsebar')
 assert.equal(plugin.version, VERSION)
 assert.equal(plugin.defaultEnabled, true)
 assert.equal(clampPercent(-4), 0)
@@ -71,21 +80,36 @@ assert.equal(clampPercent(Number.NaN), null)
 assert.match(clockStatusItem(new Date('2026-08-02T20:00:00Z')).label, /\d{2}:\d{2}/)
 assert.equal(contextStatusItem({ context_used: 25, context_max: 100 }).label, 'Ctx 25%')
 
-const usageItem = usageStatusItem({
-  available: true,
-  plan_name: 'Plus',
-  renews_display: 'Aug 31, 2026',
-  total_spendable_display: '$14.00',
-  plan_bar: {
-    remaining_display: '$14.00',
-    total_display: '$20.00',
-    pct_used: 30
-  }
-})
-assert.equal(usageItem.label, 'Plus $14.00')
-assert.match(usageItem.title, /30% used/)
+const providerPayload = {
+  providers: [
+    {
+      id: 'codex',
+      label: 'Codex',
+      available: true,
+      plan: 'Plus',
+      windows: [{ label: 'Session', used_percent: 12, reset_at: '2026-08-03T12:00:00Z' }]
+    },
+    {
+      id: 'grok',
+      label: 'Grok',
+      available: true,
+      windows: [
+        { label: 'Weekly credits', used_percent: 100 },
+        { label: 'Monthly included', used_percent: 28, detail: '4169 / 15000 quota points' }
+      ]
+    }
+  ]
+}
+const codexItem = providerStatusItem(providerPayload, 'codex', 'Codex')
+assert.equal(codexItem.label, 'Codex 12%')
+assert.match(codexItem.title, /Plan: Plus/)
+const grokItem = providerStatusItem(providerPayload, 'grok', 'Grok')
+assert.equal(grokItem.label, 'Grok 100%')
+assert.match(grokItem.title, /Monthly included: 28% used/)
+assert.equal(providerStatusItem({}, 'grok', 'Grok').label, 'Grok —')
 
 const ctx = {
+  rest: async () => providerPayload,
   registerMany(contributions) {
     registrations.push(...contributions)
     return () => registrations.splice(0)
@@ -94,7 +118,7 @@ const ctx = {
 plugin.register(ctx)
 assert.deepEqual(
   registrations.map(item => item.id),
-  ['account-usage', 'context-usage', 'local-clock']
+  ['codex-usage', 'grok-usage', 'context-usage', 'local-clock']
 )
 assert.ok(registrations.every(item => item.area === 'statusBar.right'))
 assert.ok(registrations.every(item => typeof item.data.render === 'function'))
@@ -105,4 +129,4 @@ for (const contribution of registrations) {
   assert.equal(typeof element.type, 'function')
 }
 
-console.log('smoke: PASS — lifecycle-safe status components verified')
+console.log('smoke: PASS — Codex/Grok provider chips and lifecycle verified')

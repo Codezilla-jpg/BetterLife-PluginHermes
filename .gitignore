@@ -2,5 +2,7 @@ dist/
 node_modules/
 .DS_Store
 *.log
+__pycache__/
+*.py[cod]
 .env
 .env.*

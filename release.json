@@ -1,19 +1,22 @@
 {
   "schemaVersion": 1,
   "id": "statusline-workspaces",
-  "name": "Hermes Statusline",
-  "version": "0.2.0",
+  "name": "Hermes Pulsebar",
+  "version": "0.3.0",
   "entrypoint": "plugin.js",
+  "backend": "backend/dashboard/plugin_api.py",
   "compatibility": {
     "runtime": "Hermes Desktop plugin SDK",
     "minimumHermesVersion": "0.19.1",
     "status": "ready",
     "requires": [
       "STATUSBAR_AREAS",
+      "PluginContext.rest",
       "useQuery",
       "useValue",
-      "usage.bars",
-      "session.context_breakdown"
+      "session.context_breakdown",
+      "openai-codex OAuth",
+      "xai-oauth"
     ]
   }
 }
