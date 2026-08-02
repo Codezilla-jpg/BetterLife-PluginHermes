@@ -66,7 +66,7 @@ const ctx = {
   registerMany(contributions) { registrations.push(...contributions) },
   onDispose(dispose) { disposers.push(dispose) }
 }
-const returnedCleanup = plugin.register(ctx)
+plugin.register(ctx)
 assert.equal(registrations.length, 4)
 assert.deepEqual(registrations.map(({ id, area }) => ({ id, area })), [
   { id: 'provider-limits', area: 'statusBar.right' },
@@ -74,13 +74,18 @@ assert.deepEqual(registrations.map(({ id, area }) => ({ id, area })), [
   { id: 'local-clock', area: 'statusBar.right' },
   { id: 'change-workspace', area: 'session.actions' }
 ])
-assert.deepEqual(
-  registrations.filter(item => item.area === 'statusBar.right').map(item => item.data?.id),
-  ['provider-limits', 'context-usage', 'local-clock']
-)
-assert.equal(registrations.find(item => item.area === 'session.actions')?.id, 'change-workspace')
+const statusbarRegistrations = registrations.filter(item => item.area === 'statusBar.right')
+assert.deepEqual(statusbarRegistrations.map(item => item.data?.id), [
+  'provider-limits',
+  'context-usage',
+  'local-clock'
+])
+assert.ok(statusbarRegistrations.every(item => item.data?.placeholder === true))
+const workspaceRegistration = registrations.find(item => item.area === 'session.actions')
+assert.equal(workspaceRegistration?.id, 'change-workspace')
+assert.equal(workspaceRegistration?.data?.placeholder, true)
+assert.equal(workspaceRegistration?.data?.disabled, true)
 
-if (typeof returnedCleanup === 'function') await returnedCleanup()
 for (const dispose of disposers.reverse()) await dispose()
 assert.equal(timers.size, 0, 'plugin unload must clean up all timers')
 assert.equal(listeners.size, 0, 'plugin unload must clean up all listeners')
