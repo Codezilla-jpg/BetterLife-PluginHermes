@@ -3,8 +3,8 @@ import { useEffect, useState } from 'react'
 import { jsx } from 'react/jsx-runtime'
 
 const ID = 'statusline-workspaces'
-const NAME = 'Hermes Pulsebar'
-const VERSION = '0.3.0'
+const NAME = 'BetterLife'
+const VERSION = '0.3.1'
 const PROVIDER_POLL_MS = 5 * 60_000
 const CONTEXT_POLL_MS = 60_000
 const CLOCK_POLL_MS = 60_000
@@ -27,7 +27,8 @@ const percent = value => {
 const count = value =>
   new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 }).format(finite(value) ?? 0)
 
-const localTime = date => new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' }).format(date)
+const localTime = date =>
+  new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', hour12: false }).format(date)
 
 const localDateTime = value => {
   const date = new Date(value)
@@ -36,7 +37,8 @@ const localDateTime = value => {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
-    minute: '2-digit'
+    minute: '2-digit',
+    hour12: false
   }).format(date)
 }
 
@@ -137,41 +139,41 @@ const plugin = {
     console.info(`[${ID}] loaded v${VERSION}`)
     ctx.registerMany([
       {
-        id: 'codex-usage',
+        id: 'betterlife-codex-usage',
         area: STATUSBAR_AREAS.right,
         order: 90,
         data: {
-          id: 'codex-usage',
+          id: 'betterlife-codex-usage',
           render: () => jsx(ProviderChip, { providerId: 'codex', providerLabel: 'Codex', rest: ctx.rest }),
           toggleLabel: 'Codex usage'
         }
       },
       {
-        id: 'grok-usage',
+        id: 'betterlife-grok-usage',
         area: STATUSBAR_AREAS.right,
         order: 100,
         data: {
-          id: 'grok-usage',
+          id: 'betterlife-grok-usage',
           render: () => jsx(ProviderChip, { providerId: 'grok', providerLabel: 'Grok', rest: ctx.rest }),
           toggleLabel: 'Grok usage'
         }
       },
       {
-        id: 'context-usage',
+        id: 'betterlife-context-usage',
         area: STATUSBAR_AREAS.right,
         order: 110,
         data: {
-          id: 'context-usage',
+          id: 'betterlife-context-usage',
           render: () => jsx(ContextChip, {}),
           toggleLabel: 'Context usage'
         }
       },
       {
-        id: 'local-clock',
+        id: 'betterlife-local-clock',
         area: STATUSBAR_AREAS.right,
         order: 120,
         data: {
-          id: 'local-clock',
+          id: 'betterlife-local-clock',
           render: () => jsx(ClockChip, {}),
           toggleLabel: 'Local clock'
         }

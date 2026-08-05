@@ -1,4 +1,4 @@
-"""Provider quota backend for the Hermes Pulsebar desktop plugin.
+"""Provider quota backend for the BetterLife desktop plugin.
 
 Mounted at ``/api/plugins/statusline-workspaces/`` by Hermes. Responses contain
 usage percentages and reset times only; credentials and account identities are

@@ -11,7 +11,7 @@ from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 ROOT = Path(__file__).resolve().parent.parent
 RELEASE = json.loads((ROOT / "release.json").read_text(encoding="utf-8"))
 PLUGIN_ID = "statusline-workspaces"
-ARCHIVE_SLUG = "hermes-pulsebar"
+ARCHIVE_SLUG = "betterlife-plugin-hermes"
 VERSION = RELEASE["version"]
 FILES = (
     "plugin.yaml",

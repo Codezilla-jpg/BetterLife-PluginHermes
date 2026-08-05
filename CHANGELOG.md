@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.1 — 2026-08-06
+
+### Fixed
+
+- Kontextanzeige verwendet eine eigene BetterLife-ID und wird nicht mehr durch die standardmäßig ausgeblendete Hermes-Kernanzeige verborgen.
+- Uhrzeit wird ausdrücklich im 24-Stunden-Format ohne AM/PM dargestellt.
+
+### Changed
+
+- Anzeigename auf **BetterLife** aktualisiert.
+- Funktionsumfang klar auf Codex, Grok, Kontext und Uhrzeit begrenzt.
+
 ## 0.3.0 — 2026-08-03
 
 ### Added

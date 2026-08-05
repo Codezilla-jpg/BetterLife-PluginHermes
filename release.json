@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "id": "statusline-workspaces",
-  "name": "Hermes Pulsebar",
-  "version": "0.3.0",
+  "name": "BetterLife",
+  "version": "0.3.1",
   "entrypoint": "plugin.js",
   "backend": "backend/dashboard/plugin_api.py",
   "compatibility": {

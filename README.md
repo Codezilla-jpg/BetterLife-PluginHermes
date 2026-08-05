@@ -1,18 +1,13 @@
 # BetterLife – Hermes Plugin
 
-BetterLife ergänzt Hermes Desktop um eine kompakte Statusleiste für Provider-Limits, Kontextverbrauch und Uhrzeit.
+BetterLife ergänzt Hermes Desktop um vier kompakte Anzeigen in der Statusleiste.
 
 ## Was BetterLife bisher macht
 
-- **Codex-Limits:** zeigt die echten Account-Limits aus Hermes’ `openai-codex`-Usage-Client.
-- **Grok-Limits:** zeigt Wochen- und Monatsverbrauch über den Grok-CLI-Billing-Endpunkt.
-- **Kontextanzeige:** zeigt die aktuelle Kontextauslastung der aktiven Hermes-Session.
-- **Lokale Uhr:** zeigt die Systemzeit direkt in der Statusleiste.
-- **Details per Hover:** zeigt Zeitfenster, Verbrauch, Reset-Zeiten und verfügbare Planinformationen.
-- **Automatische Aktualisierung:** Provider alle fünf Minuten, Kontext und Uhrzeit jede Minute.
-- **Einzeln einblendbar:** Codex, Grok, Kontext und Uhr können über das Statusleisten-Menü separat ein- oder ausgeblendet werden.
-- **Sichere Verarbeitung:** OAuth-Tokens und Account-Identitäten bleiben im Backend; der Desktop erhält nur Verbrauchswerte und Reset-Zeitpunkte.
-- **Ehrliche Fehleranzeige:** nicht verfügbare Provider erscheinen mit `—`, statt fremde oder erfundene Werte anzuzeigen.
+- **Codex:** Account-Limits.
+- **Grok:** Wochen- und Monatslimits.
+- **Ctx:** Kontextauslastung der aktiven Session.
+- **Uhrzeit:** lokale Zeit im 24-Stunden-Format ohne AM/PM.
 
 ## Architektur
 

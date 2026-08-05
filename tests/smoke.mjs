@@ -69,15 +69,17 @@ const {
   VERSION
 } = mod.namespace
 
-assert.equal(VERSION, '0.3.0')
+assert.equal(VERSION, '0.3.1')
 assert.equal(plugin.id, 'statusline-workspaces')
-assert.equal(plugin.name, 'Hermes Pulsebar')
+assert.equal(plugin.name, 'BetterLife')
 assert.equal(plugin.version, VERSION)
 assert.equal(plugin.defaultEnabled, true)
 assert.equal(clampPercent(-4), 0)
 assert.equal(clampPercent(104), 100)
 assert.equal(clampPercent(Number.NaN), null)
-assert.match(clockStatusItem(new Date('2026-08-02T20:00:00Z')).label, /\d{2}:\d{2}/)
+const clockLabel = clockStatusItem(new Date(2026, 7, 2, 20, 5)).label
+assert.match(clockLabel, /20[:.]05/)
+assert.doesNotMatch(clockLabel, /\b(?:AM|PM)\b/i)
 assert.equal(contextStatusItem({ context_used: 25, context_max: 100 }).label, 'Ctx 25%')
 
 const providerPayload = {
@@ -118,8 +120,9 @@ const ctx = {
 plugin.register(ctx)
 assert.deepEqual(
   registrations.map(item => item.id),
-  ['codex-usage', 'grok-usage', 'context-usage', 'local-clock']
+  ['betterlife-codex-usage', 'betterlife-grok-usage', 'betterlife-context-usage', 'betterlife-local-clock']
 )
+assert.ok(registrations.every(item => item.data.id === item.id))
 assert.ok(registrations.every(item => item.area === 'statusBar.right'))
 assert.ok(registrations.every(item => typeof item.data.render === 'function'))
 assert.ok(registrations.every(item => typeof item.data.toggleLabel === 'string'))
