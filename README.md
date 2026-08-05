@@ -1,32 +1,33 @@
-# Hermes Pulsebar
+# BetterLife – Hermes Plugin
 
-Kompakte Hermes-Desktop-Statusleiste für echte Provider-Quotas, Kontext und Uhrzeit.
+BetterLife ergänzt Hermes Desktop um eine kompakte Statusleiste für Provider-Limits, Kontextverbrauch und Uhrzeit.
 
-## Anzeigen
+## Was BetterLife bisher macht
 
-- **Codex** — Account-Limits aus Hermes’ vorhandenem `openai-codex`-Usage-Client.
-- **Grok** — SuperGrok-Quota über den Grok-CLI-Billing-Endpunkt.
-- **Ctx** — Kontextverbrauch der aktiven Hermes-Session.
-- **Uhrzeit** — lokale Systemzeit.
-
-Die frühere Nous-Anzeige wurde entfernt. `usage.bars` beschreibt das Hermes-/Nous-Billing und ist keine Codex- oder Grok-Quota.
+- **Codex-Limits:** zeigt die echten Account-Limits aus Hermes’ `openai-codex`-Usage-Client.
+- **Grok-Limits:** zeigt Wochen- und Monatsverbrauch über den Grok-CLI-Billing-Endpunkt.
+- **Kontextanzeige:** zeigt die aktuelle Kontextauslastung der aktiven Hermes-Session.
+- **Lokale Uhr:** zeigt die Systemzeit direkt in der Statusleiste.
+- **Details per Hover:** zeigt Zeitfenster, Verbrauch, Reset-Zeiten und verfügbare Planinformationen.
+- **Automatische Aktualisierung:** Provider alle fünf Minuten, Kontext und Uhrzeit jede Minute.
+- **Einzeln einblendbar:** Codex, Grok, Kontext und Uhr können über das Statusleisten-Menü separat ein- oder ausgeblendet werden.
+- **Sichere Verarbeitung:** OAuth-Tokens und Account-Identitäten bleiben im Backend; der Desktop erhält nur Verbrauchswerte und Reset-Zeitpunkte.
+- **Ehrliche Fehleranzeige:** nicht verfügbare Provider erscheinen mit `—`, statt fremde oder erfundene Werte anzuzeigen.
 
 ## Architektur
 
-Das Paket besteht aus zwei kleinen Teilen:
+Das Plugin besteht aus zwei kleinen Teilen:
 
-1. `plugin.js` rendert die Statusleisten-Chips mit der offiziellen Desktop-Plugin-SDK.
-2. `backend/dashboard/plugin_api.py` liest Provider-Quotas serverseitig über bereits vorhandene Hermes-OAuth-Anmeldungen.
+1. `plugin.js` rendert die Statusleisten-Anzeigen mit der offiziellen Desktop-Plugin-SDK.
+2. `backend/dashboard/plugin_api.py` liest die Provider-Limits serverseitig über bereits vorhandene Hermes-OAuth-Anmeldungen.
 
-Tokens und Account-Identitäten werden nie an den Desktop-Renderer ausgegeben. Der Backend-Endpunkt liefert nur Prozentwerte, Zeitfenster und Reset-Zeitpunkte.
+Die technische Plugin-ID bleibt aus Kompatibilitätsgründen `statusline-workspaces`.
 
 ## Datenquellen
 
-- Codex: `agent.account_usage.fetch_account_usage("openai-codex")`.
-- Grok: `https://cli-chat-proxy.grok.com/v1/billing` mit `xai-oauth`.
-- Kontext: `session.context_breakdown`.
-
-Falls ein Provider nicht angemeldet oder sein Billing-Endpunkt nicht erreichbar ist, zeigt Pulsebar ehrlich `Codex —` beziehungsweise `Grok —` statt Nous-Werte falsch umzubenennen.
+- Codex: `agent.account_usage.fetch_account_usage("openai-codex")`
+- Grok: `https://cli-chat-proxy.grok.com/v1/billing`
+- Kontext: `session.context_breakdown`
 
 ## Installation
 
@@ -51,8 +52,8 @@ Hermes Desktop lädt Dateiänderungen automatisch; andernfalls die App einmal ne
 
 ## Bedienung
 
-- Hover über **Codex** oder **Grok** zeigt einzelne Zeitfenster und Reset-Zeiten.
-- Hover über **Ctx** zeigt Tokenbudget und Kategorien.
+- Hover über **Codex** oder **Grok** zeigt Zeitfenster und Reset-Zeiten.
+- Hover über **Ctx** zeigt Tokenbudget und Kontextkategorien.
 - Rechtsklick auf die Statusleiste blendet einzelne Anzeigen ein oder aus.
 
 ## Entwicklung
@@ -61,4 +62,4 @@ Hermes Desktop lädt Dateiänderungen automatisch; andernfalls die App einmal ne
 npm run verify
 ```
 
-Erzeugt zusätzlich ein deterministisches ZIP samt SHA-256-Datei unter `dist/`.
+Der Befehl prüft Frontend und Backend und erzeugt ein deterministisches ZIP samt SHA-256-Datei unter `dist/`.
