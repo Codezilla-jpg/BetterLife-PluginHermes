@@ -30,6 +30,7 @@ Die technische Plugin-ID bleibt aus Kompatibilitätsgründen `statusline-workspa
 
 ```bash
 mkdir -p ~/.hermes/plugins/statusline-workspaces/dashboard
+cp {plugin.yaml,__init__.py} ~/.hermes/plugins/statusline-workspaces/
 cp backend/dashboard/{manifest.json,plugin_api.py} ~/.hermes/plugins/statusline-workspaces/dashboard/
 hermes plugins enable statusline-workspaces
 ```

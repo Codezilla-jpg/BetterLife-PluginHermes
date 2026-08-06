@@ -15,6 +15,7 @@ ARCHIVE_SLUG = "betterlife-plugin-hermes"
 VERSION = RELEASE["version"]
 FILES = (
     "plugin.yaml",
+    "__init__.py",
     "plugin.js",
     "release.json",
     "backend/dashboard/manifest.json",

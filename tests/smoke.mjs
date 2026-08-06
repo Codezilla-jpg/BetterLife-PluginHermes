@@ -69,7 +69,7 @@ const {
   VERSION
 } = mod.namespace
 
-assert.equal(VERSION, '0.3.1')
+assert.equal(VERSION, '0.3.2')
 assert.equal(plugin.id, 'statusline-workspaces')
 assert.equal(plugin.name, 'BetterLife')
 assert.equal(plugin.version, VERSION)

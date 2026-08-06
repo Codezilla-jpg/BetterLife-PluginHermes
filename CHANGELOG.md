@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.2 — 2026-08-07
+
+### Fixed
+
+- Das Backend-Paket enthält jetzt das von Hermes benötigte `__init__.py` mit einer gültigen No-op-Registrierung.
+- Installation und Release-Archiv liefern damit ein vollständig ladbares Hermes-Plugin statt wiederholter Loader-Fehler.
+
 ## 0.3.1 — 2026-08-06
 
 ### Fixed
