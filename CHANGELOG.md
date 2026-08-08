@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0 — 2026-08-08
+
+### Added
+
+- Neuer **Cronjobs**-Eintrag in der Hermes-Session-Bar, analog zum Kanban-Plugin.
+- Der Eintrag öffnet die native Cron-Verwaltung mit Übersicht, Erstellen, Bearbeiten, Pausieren, Starten und Löschen.
+
 ## 0.3.2 — 2026-08-07
 
 ### Fixed

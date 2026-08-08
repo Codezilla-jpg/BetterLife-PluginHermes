@@ -1,9 +1,10 @@
 # BetterLife – Hermes Plugin
 
-BetterLife ergänzt Hermes Desktop um vier kompakte Anzeigen in der Statusleiste.
+BetterLife ergänzt Hermes Desktop um eine Cronjob-Verwaltung in der Session-Bar und vier kompakte Anzeigen in der Statusleiste.
 
 ## Was BetterLife bisher macht
 
+- **Cronjobs:** Eintrag in der Session-Bar öffnet die native Hermes-Verwaltung mit Übersicht, Erstellen, Bearbeiten, Pausieren, Starten und Löschen.
 - **Codex:** Account-Limits.
 - **Grok:** Wochen- und Monatslimits.
 - **Ctx:** Kontextauslastung der aktiven Session.
@@ -48,6 +49,7 @@ Hermes Desktop lädt Dateiänderungen automatisch; andernfalls die App einmal ne
 
 ## Bedienung
 
+- **Cronjobs** in der Session-Bar öffnet die vollständige native Cron-Verwaltung.
 - Hover über **Codex** oder **Grok** zeigt Zeitfenster und Reset-Zeiten.
 - Hover über **Ctx** zeigt Tokenbudget und Kontextkategorien.
 - Rechtsklick auf die Statusleiste blendet einzelne Anzeigen ein oder aus.

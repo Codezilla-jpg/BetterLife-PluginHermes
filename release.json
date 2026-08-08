@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "statusline-workspaces",
   "name": "BetterLife",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "entrypoint": "plugin.js",
   "backend": "backend/dashboard/plugin_api.py",
   "compatibility": {
@@ -11,6 +11,7 @@
     "status": "ready",
     "requires": [
       "STATUSBAR_AREAS",
+      "SIDEBAR_NAV_AREA",
       "PluginContext.rest",
       "useQuery",
       "useValue",

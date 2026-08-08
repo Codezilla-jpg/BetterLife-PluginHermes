@@ -20,6 +20,7 @@ const sdk = {
     state: { activeSessionId },
     request: async () => ({ available: false })
   },
+  SIDEBAR_NAV_AREA: 'sidebar.nav',
   STATUSBAR_AREAS: { left: 'statusBar.left', right: 'statusBar.right' },
   useQuery: options => ({ data: options.enabled === false ? undefined : { providers: [] } }),
   useValue: atom => atom.get()
@@ -69,7 +70,7 @@ const {
   VERSION
 } = mod.namespace
 
-assert.equal(VERSION, '0.3.2')
+assert.equal(VERSION, '0.4.0')
 assert.equal(plugin.id, 'statusline-workspaces')
 assert.equal(plugin.name, 'BetterLife')
 assert.equal(plugin.version, VERSION)
@@ -120,16 +121,29 @@ const ctx = {
 plugin.register(ctx)
 assert.deepEqual(
   registrations.map(item => item.id),
-  ['betterlife-codex-usage', 'betterlife-grok-usage', 'betterlife-context-usage', 'betterlife-local-clock']
+  [
+    'betterlife-cronjobs-nav',
+    'betterlife-codex-usage',
+    'betterlife-grok-usage',
+    'betterlife-context-usage',
+    'betterlife-local-clock'
+  ]
 )
-assert.ok(registrations.every(item => item.data.id === item.id))
-assert.ok(registrations.every(item => item.area === 'statusBar.right'))
-assert.ok(registrations.every(item => typeof item.data.render === 'function'))
-assert.ok(registrations.every(item => typeof item.data.toggleLabel === 'string'))
+const nav = registrations[0]
+assert.equal(nav.area, 'sidebar.nav')
+assert.equal(nav.data.codicon, 'watch')
+assert.equal(nav.data.label, 'Cronjobs')
+assert.equal(nav.data.path, '/cron')
 
-for (const contribution of registrations) {
+const statusItems = registrations.slice(1)
+assert.ok(statusItems.every(item => item.data.id === item.id))
+assert.ok(statusItems.every(item => item.area === 'statusBar.right'))
+assert.ok(statusItems.every(item => typeof item.data.render === 'function'))
+assert.ok(statusItems.every(item => typeof item.data.toggleLabel === 'string'))
+
+for (const contribution of statusItems) {
   const element = contribution.data.render()
   assert.equal(typeof element.type, 'function')
 }
 
-console.log('smoke: PASS — Codex/Grok provider chips and lifecycle verified')
+console.log('smoke: PASS — Cronjobs navigation, provider chips and lifecycle verified')

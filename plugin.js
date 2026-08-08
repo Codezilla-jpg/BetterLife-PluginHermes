@@ -1,10 +1,10 @@
-import { STATUSBAR_AREAS, host, useQuery, useValue } from '@hermes/plugin-sdk'
+import { SIDEBAR_NAV_AREA, STATUSBAR_AREAS, host, useQuery, useValue } from '@hermes/plugin-sdk'
 import { useEffect, useState } from 'react'
 import { jsx } from 'react/jsx-runtime'
 
 const ID = 'statusline-workspaces'
 const NAME = 'BetterLife'
-const VERSION = '0.3.2'
+const VERSION = '0.4.0'
 const PROVIDER_POLL_MS = 5 * 60_000
 const CONTEXT_POLL_MS = 60_000
 const CLOCK_POLL_MS = 60_000
@@ -138,6 +138,16 @@ const plugin = {
   register(ctx) {
     console.info(`[${ID}] loaded v${VERSION}`)
     ctx.registerMany([
+      {
+        id: 'betterlife-cronjobs-nav',
+        area: SIDEBAR_NAV_AREA,
+        order: 60,
+        data: {
+          codicon: 'watch',
+          label: 'Cronjobs',
+          path: '/cron'
+        }
+      },
       {
         id: 'betterlife-codex-usage',
         area: STATUSBAR_AREAS.right,

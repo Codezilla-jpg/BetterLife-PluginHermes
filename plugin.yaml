@@ -1,3 +1,3 @@
 name: statusline-workspaces
-version: 0.3.2
-description: Codex/Grok limits, context usage and 24-hour clock for BetterLife.
+version: 0.4.0
+description: Cronjobs sidebar access, Codex/Grok limits, context usage and 24-hour clock for BetterLife.
