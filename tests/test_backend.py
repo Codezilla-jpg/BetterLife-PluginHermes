@@ -44,9 +44,9 @@ class GrokUsageParsingTests(unittest.TestCase):
     def test_weekly_and_monthly_usage(self) -> None:
         credits = {
             "config": {
-                "creditUsagePercent": 100,
+                "creditUsagePercent": 16,
                 "currentPeriod": {"end": "2026-08-09T00:00:00Z"},
-                "productUsage": [{"product": "GrokBuild", "usagePercent": 100}],
+                "productUsage": [{"product": "GrokBuild", "usagePercent": 16}],
             }
         }
         monthly = {
@@ -60,9 +60,10 @@ class GrokUsageParsingTests(unittest.TestCase):
         result = API._parse_grok_payloads(credits, monthly)
 
         self.assertTrue(result["available"])
-        self.assertEqual(result["windows"][0]["used_percent"], 100)
+        self.assertEqual(result["display_used_percent"], 16)
+        self.assertEqual(result["windows"][0]["label"], "Grok Build")
+        self.assertEqual(result["windows"][0]["used_percent"], 16)
         self.assertAlmostEqual(result["windows"][1]["used_percent"], 27.79, places=2)
-        self.assertIn("Grok Build: 100% used", result["details"])
 
     def test_invalid_payload_is_honestly_unavailable(self) -> None:
         result = API._parse_grok_payloads({}, {})

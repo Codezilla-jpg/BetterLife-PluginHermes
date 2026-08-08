@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.1 — 2026-08-08
+
+### Fixed
+
+- Grok zeigt jetzt denselben primären **Grok Build**-Verbrauch wie die offizielle Grok-Oberfläche.
+- Das separate Monatskontingent bleibt in den Details sichtbar, bestimmt aber nicht mehr den kompakten Statusleistenwert.
+
 ## 0.4.0 — 2026-08-08
 
 ### Added

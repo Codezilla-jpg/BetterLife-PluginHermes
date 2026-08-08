@@ -6,7 +6,7 @@ BetterLife ergänzt Hermes Desktop um eine Cronjob-Verwaltung in der Session-Bar
 
 - **Cronjobs:** Eintrag in der Session-Bar öffnet die native Hermes-Verwaltung mit Übersicht, Erstellen, Bearbeiten, Pausieren, Starten und Löschen.
 - **Codex:** Account-Limits.
-- **Grok:** Wochen- und Monatslimits.
+- **Grok:** Primärwert entspricht **Grok Build** in der offiziellen Oberfläche; das separate Monatskontingent bleibt im Detail sichtbar.
 - **Ctx:** Kontextauslastung der aktiven Session.
 - **Uhrzeit:** lokale Zeit im 24-Stunden-Format ohne AM/PM.
 

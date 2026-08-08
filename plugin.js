@@ -4,7 +4,7 @@ import { jsx } from 'react/jsx-runtime'
 
 const ID = 'statusline-workspaces'
 const NAME = 'BetterLife'
-const VERSION = '0.4.0'
+const VERSION = '0.4.1'
 const PROVIDER_POLL_MS = 5 * 60_000
 const CONTEXT_POLL_MS = 60_000
 const CLOCK_POLL_MS = 60_000
@@ -48,7 +48,14 @@ function providerStatusItem(payload, providerId, providerLabel) {
     : null
   const windows = Array.isArray(provider?.windows) ? provider.windows : []
   const percentages = windows.map(item => clampPercent(item?.used_percent)).filter(value => value !== null)
-  const used = percentages.length ? Math.max(...percentages) : null
+  const grokBuildWindow =
+    providerId === 'grok'
+      ? windows.find(item => item?.label === 'Grok Build' || item?.label === 'Weekly credits')
+      : null
+  const used =
+    clampPercent(provider?.display_used_percent) ??
+    clampPercent(grokBuildWindow?.used_percent) ??
+    (percentages.length ? Math.max(...percentages) : null)
   const details = []
 
   if (provider?.plan) details.push(`Plan: ${provider.plan}`)

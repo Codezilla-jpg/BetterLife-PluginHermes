@@ -70,7 +70,7 @@ const {
   VERSION
 } = mod.namespace
 
-assert.equal(VERSION, '0.4.0')
+assert.equal(VERSION, '0.4.1')
 assert.equal(plugin.id, 'statusline-workspaces')
 assert.equal(plugin.name, 'BetterLife')
 assert.equal(plugin.version, VERSION)
@@ -96,9 +96,10 @@ const providerPayload = {
       id: 'grok',
       label: 'Grok',
       available: true,
+      display_used_percent: 16,
       windows: [
-        { label: 'Weekly credits', used_percent: 100 },
-        { label: 'Monthly included', used_percent: 28, detail: '4169 / 15000 quota points' }
+        { label: 'Grok Build', used_percent: 16 },
+        { label: 'Monthly included', used_percent: 33, detail: '4934 / 15000 quota points' }
       ]
     }
   ]
@@ -107,8 +108,24 @@ const codexItem = providerStatusItem(providerPayload, 'codex', 'Codex')
 assert.equal(codexItem.label, 'Codex 12%')
 assert.match(codexItem.title, /Plan: Plus/)
 const grokItem = providerStatusItem(providerPayload, 'grok', 'Grok')
-assert.equal(grokItem.label, 'Grok 100%')
-assert.match(grokItem.title, /Monthly included: 28% used/)
+assert.equal(grokItem.label, 'Grok 16%')
+assert.match(grokItem.title, /Monthly included: 33% used/)
+const legacyGrokItem = providerStatusItem(
+  {
+    providers: [
+      {
+        id: 'grok',
+        windows: [
+          { label: 'Weekly credits', used_percent: 16 },
+          { label: 'Monthly included', used_percent: 33 }
+        ]
+      }
+    ]
+  },
+  'grok',
+  'Grok'
+)
+assert.equal(legacyGrokItem.label, 'Grok 16%')
 assert.equal(providerStatusItem({}, 'grok', 'Grok').label, 'Grok —')
 
 const ctx = {

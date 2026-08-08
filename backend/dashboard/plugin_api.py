@@ -138,9 +138,7 @@ def _parse_grok_payloads(
 
     weekly_percent = _bounded_percent(credits.get("creditUsagePercent"))
     period = credits.get("currentPeriod") if isinstance(credits.get("currentPeriod"), dict) else {}
-    if weekly_percent is not None:
-        windows.append(_window("Weekly credits", weekly_percent, period.get("end")))
-
+    grok_build_percent = None
     products = credits.get("productUsage")
     if isinstance(products, list):
         for item in products:
@@ -150,7 +148,15 @@ def _parse_grok_payloads(
             used = _bounded_percent(item.get("usagePercent"))
             if product and used is not None:
                 label = "Grok Build" if product == "GrokBuild" else product
-                details.append(f"{label}: {used:.0f}% used")
+                if product == "GrokBuild":
+                    grok_build_percent = used
+                else:
+                    details.append(f"{label}: {used:.0f}% used")
+
+    display_percent = grok_build_percent if grok_build_percent is not None else weekly_percent
+    if display_percent is not None:
+        display_label = "Grok Build" if grok_build_percent is not None else "Weekly credits"
+        windows.append(_window(display_label, display_percent, period.get("end")))
 
     limit = _amount(monthly.get("monthlyLimit"))
     used = _amount(monthly.get("used"))
@@ -170,6 +176,7 @@ def _parse_grok_payloads(
         "label": "Grok",
         "available": bool(windows),
         "source": "cli-chat-proxy.grok.com/v1/billing",
+        "display_used_percent": display_percent,
         "windows": windows,
         "details": details,
         "reason": None if windows else "Grok quota unavailable",
