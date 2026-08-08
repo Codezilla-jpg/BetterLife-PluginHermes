@@ -20,6 +20,7 @@ FILES = (
     "release.json",
     "backend/dashboard/manifest.json",
     "backend/dashboard/plugin_api.py",
+    "backend/dashboard/restart_helper.py",
     "README.md",
     "CHANGELOG.md",
     "LICENSE",

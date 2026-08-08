@@ -17,7 +17,7 @@ BetterLife ergänzt Hermes Desktop um eine Cronjob-Verwaltung in der Session-Bar
 Das Plugin besteht aus zwei kleinen Teilen:
 
 1. `plugin.js` rendert die Statusleisten-Anzeigen mit der offiziellen Desktop-Plugin-SDK.
-2. `backend/dashboard/plugin_api.py` liest die Provider-Limits serverseitig über bereits vorhandene Hermes-OAuth-Anmeldungen.
+2. `backend/dashboard/plugin_api.py` liest die Provider-Limits serverseitig und führt die festen Gateway-/Hermes-Neustarts auf dem verbundenen Host aus.
 
 Die technische Plugin-ID bleibt aus Kompatibilitätsgründen `statusline-workspaces`.
 
@@ -55,7 +55,7 @@ Hermes Desktop lädt Dateiänderungen automatisch; andernfalls die App einmal ne
 - Hover über **Codex** oder **Grok** zeigt Zeitfenster und Reset-Zeiten.
 - Hover über **Ctx** zeigt Tokenbudget und Kontextkategorien.
 - Rechtsklick auf die Statusleiste blendet einzelne Anzeigen ein oder aus.
-- Die drei Restart-Räder links neben der Client-Version starten Client, Gateway oder Hermes-Instanz neu; Hover blendet den kurzen Zielnamen ein.
+- Die drei Restart-Räder links neben der Client-Version starten Client, System-Gateway oder die aktuell verbundene Hermes-Backend-Instanz neu; Hover blendet den kurzen Zielnamen ein.
 
 ## Entwicklung
 

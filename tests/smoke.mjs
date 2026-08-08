@@ -13,6 +13,7 @@ let hapticCalls = 0
 let reloadCalls = 0
 let hermesRestartCalls = 0
 let notifyErrorCalls = 0
+const restartRestCalls = []
 
 assert.doesNotMatch(source, /SESSION_ACTIONS_AREA|selectWorkspaceDirectory|setSessionWorkspace|usage\.bars|ctx\.onDispose/)
 assert.match(source, /ctx\.rest/)
@@ -66,6 +67,10 @@ const sandbox = {
   clearInterval() {},
   setInterval() {
     return 1
+  },
+  setTimeout(callback) {
+    callback()
+    return 1
   }
 }
 const context = vm.createContext(sandbox)
@@ -98,7 +103,7 @@ const {
   VERSION
 } = mod.namespace
 
-assert.equal(VERSION, '0.4.4')
+assert.equal(VERSION, '0.4.5')
 assert.equal(plugin.id, 'statusline-workspaces')
 assert.equal(plugin.name, 'BetterLife')
 assert.equal(plugin.version, VERSION)
@@ -157,7 +162,11 @@ assert.equal(legacyGrokItem.label, 'Grok 16%')
 assert.equal(providerStatusItem({}, 'grok', 'Grok').label, 'Grok —')
 
 const ctx = {
-  rest: async () => providerPayload,
+  rest: async (path, options) => {
+    if (path === '/usage') return providerPayload
+    restartRestCalls.push({ path, options })
+    return { ok: true }
+  },
   registerMany(contributions) {
     registrations.push(...contributions)
     return () => registrations.splice(0)
@@ -207,7 +216,10 @@ assert.equal(gatewayButton.props.children[1].props.style.maxWidth, '0')
 assert.equal(typeof gatewayButton.props.onMouseEnter, 'function')
 assert.equal(typeof gatewayButton.props.onMouseLeave, 'function')
 await gatewayButton.props.onClick()
-assert.equal(restartCalls, 1)
+assert.equal(restartRestCalls[0].path, '/restart/gateway')
+assert.equal(restartRestCalls[0].options.method, 'POST')
+assert.equal(restartRestCalls[0].options.timeoutMs, 45_000)
+assert.equal(restartCalls, 0)
 assert.equal(hapticCalls, 1)
 
 const hermesRestart = registrations.find(item => item.id === 'betterlife-restart-hermes')
@@ -217,7 +229,10 @@ const hermesButton = hermesElement.type(hermesElement.props)
 assert.equal(hermesButton.props.title, 'Hermes neu starten')
 assert.equal(hermesButton.props.children[1].props.children, 'Hermes')
 await hermesButton.props.onClick()
-assert.equal(hermesRestartCalls, 1)
+assert.equal(restartRestCalls[1].path, '/restart/hermes')
+assert.equal(restartRestCalls[1].options.method, 'POST')
+assert.equal(restartRestCalls[1].options.timeoutMs, 5_000)
+assert.equal(hermesRestartCalls, 0)
 assert.equal(reloadCalls, 1)
 assert.equal(hapticCalls, 2)
 

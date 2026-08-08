@@ -7,13 +7,17 @@ never returned to the renderer.
 from __future__ import annotations
 
 import asyncio
+import os
+from pathlib import Path
+import subprocess
+import sys
 import threading
 import time
 from datetime import datetime
 from typing import Any, Dict, Iterable, Optional
 
 import httpx
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
 from agent.account_usage import fetch_account_usage
 from agent.credential_pool import load_pool
@@ -26,6 +30,14 @@ _CACHE_AT = 0.0
 _CACHE_VALUE: Optional[Dict[str, Any]] = None
 _GROK_BILLING_CREDITS = "https://cli-chat-proxy.grok.com/v1/billing?format=credits"
 _GROK_BILLING_MONTHLY = "https://cli-chat-proxy.grok.com/v1/billing"
+_GATEWAY_RESTART_COMMAND = (
+    "/usr/bin/sudo",
+    "-n",
+    "/usr/bin/systemctl",
+    "restart",
+    "hermes-gateway.service",
+)
+_HERMES_RESTART_HELPER = Path(__file__).with_name("restart_helper.py")
 
 
 def _iso(value: Any) -> Optional[str]:
@@ -223,6 +235,47 @@ def provider_usage_snapshot(force: bool = False) -> Dict[str, Any]:
         return snapshot
 
 
+async def _restart_system_gateway(executor: Any = None) -> Dict[str, Any]:
+    """Restart the production system-scoped gateway with a fixed command."""
+    run = executor or asyncio.create_subprocess_exec
+    process = await run(
+        *_GATEWAY_RESTART_COMMAND,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=30)
+    if process.returncode != 0:
+        detail = (stderr or stdout or b"gateway restart failed").decode("utf-8", errors="replace").strip()
+        raise RuntimeError(detail)
+    return {"ok": True, "target": "gateway"}
+
+
+def _schedule_hermes_restart(pid: Optional[int] = None) -> int:
+    target_pid = pid or os.getpid()
+    subprocess.Popen(
+        [sys.executable, str(_HERMES_RESTART_HELPER), str(target_pid)],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True,
+        close_fds=True,
+    )
+    return target_pid
+
+
 @router.get("/usage")
 async def provider_usage() -> Dict[str, Any]:
     return await asyncio.to_thread(provider_usage_snapshot)
+
+
+@router.post("/restart/gateway")
+async def restart_gateway() -> Dict[str, Any]:
+    try:
+        return await _restart_system_gateway()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Gateway restart failed: {exc}") from exc
+
+
+@router.post("/restart/hermes")
+async def restart_hermes() -> Dict[str, Any]:
+    return {"ok": True, "target": "hermes", "pid": _schedule_hermes_restart()}

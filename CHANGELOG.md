@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.5 — 2026-08-08
+
+### Fixed
+
+- Gateway-Neustart verwendet jetzt den tatsächlich installierten systemweiten Dienst `hermes-gateway.service` statt des unprivilegierten Desktop-Standardpfads.
+- Hermes-Neustart beendet jetzt die aktuell verbundene Remote-Backend-Instanz über einen abgekoppelten Helper; nach einer Grace-Period wird nötigenfalls zuverlässig eskaliert.
+- Client-Neustart bleibt bewusst ein reiner Desktop-Reload und ist damit klar vom Hermes-Neustart getrennt.
+
 ## 0.4.4 — 2026-08-08
 
 ### Changed

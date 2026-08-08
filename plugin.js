@@ -4,7 +4,7 @@ import { jsx } from 'react/jsx-runtime'
 
 const ID = 'statusline-workspaces'
 const NAME = 'BetterLife'
-const VERSION = '0.4.4'
+const VERSION = '0.4.5'
 const PROVIDER_POLL_MS = 5 * 60_000
 const CONTEXT_POLL_MS = 60_000
 const CLOCK_POLL_MS = 60_000
@@ -140,7 +140,7 @@ function ClockChip() {
   return jsx(StatusChip, { ...clockStatusItem(now) })
 }
 
-function RestartButton({ target }) {
+function RestartButton({ target, rest }) {
   const [restarting, setRestarting] = useState(false)
   const [hovered, setHovered] = useState(false)
   const client = target === 'client'
@@ -155,12 +155,11 @@ function RestartButton({ target }) {
       if (client) {
         window.location.reload()
       } else if (hermes) {
-        const resetBootstrap = window.hermesDesktop?.resetBootstrap
-        if (typeof resetBootstrap !== 'function') throw new Error('Desktop restart capability unavailable')
-        await resetBootstrap()
+        await rest('/restart/hermes', { method: 'POST', timeoutMs: 5_000 })
+        await new Promise(resolve => setTimeout(resolve, 1_200))
         window.location.reload()
       } else {
-        await host.restartGateway()
+        await rest('/restart/gateway', { method: 'POST', timeoutMs: 45_000 })
       }
     } catch (error) {
       host.notifyError(error, `${targetLabel}-Neustart fehlgeschlagen`)
@@ -265,7 +264,7 @@ const plugin = {
         order: 130,
         data: {
           id: 'betterlife-restart-gateway',
-          render: () => jsx(RestartButton, { target: 'gateway' }),
+          render: () => jsx(RestartButton, { target: 'gateway', rest: ctx.rest }),
           toggleLabel: 'Gateway restart'
         }
       },
@@ -275,7 +274,7 @@ const plugin = {
         order: 140,
         data: {
           id: 'betterlife-restart-hermes',
-          render: () => jsx(RestartButton, { target: 'hermes' }),
+          render: () => jsx(RestartButton, { target: 'hermes', rest: ctx.rest }),
           toggleLabel: 'Hermes restart'
         }
       },
@@ -285,7 +284,7 @@ const plugin = {
         order: 150,
         data: {
           id: 'betterlife-restart-client',
-          render: () => jsx(RestartButton, { target: 'client' }),
+          render: () => jsx(RestartButton, { target: 'client', rest: ctx.rest }),
           toggleLabel: 'Client restart'
         }
       }
