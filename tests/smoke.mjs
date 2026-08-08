@@ -11,6 +11,8 @@ const registrations = []
 let restartCalls = 0
 let hapticCalls = 0
 let reloadCalls = 0
+let hermesRestartCalls = 0
+let notifyErrorCalls = 0
 
 assert.doesNotMatch(source, /SESSION_ACTIONS_AREA|selectWorkspaceDirectory|setSessionWorkspace|usage\.bars|ctx\.onDispose/)
 assert.match(source, /ctx\.rest/)
@@ -24,6 +26,9 @@ const sdk = {
     request: async () => ({ available: false }),
     restartGateway: async () => {
       restartCalls += 1
+    },
+    notifyError: () => {
+      notifyErrorCalls += 1
     }
   },
   haptic: kind => {
@@ -47,6 +52,11 @@ const jsxRuntime = {
 const sandbox = {
   console,
   window: {
+    hermesDesktop: {
+      async resetBootstrap() {
+        hermesRestartCalls += 1
+      }
+    },
     location: {
       reload() {
         reloadCalls += 1
@@ -88,7 +98,7 @@ const {
   VERSION
 } = mod.namespace
 
-assert.equal(VERSION, '0.4.3')
+assert.equal(VERSION, '0.4.4')
 assert.equal(plugin.id, 'statusline-workspaces')
 assert.equal(plugin.name, 'BetterLife')
 assert.equal(plugin.version, VERSION)
@@ -162,7 +172,8 @@ assert.deepEqual(
     'betterlife-grok-usage',
     'betterlife-context-usage',
     'betterlife-local-clock',
-    'betterlife-restart-backend',
+    'betterlife-restart-gateway',
+    'betterlife-restart-hermes',
     'betterlife-restart-client'
   ]
 )
@@ -183,25 +194,42 @@ for (const contribution of statusItems) {
   assert.equal(typeof element.type, 'function')
 }
 
-const backendRestart = registrations.find(item => item.id === 'betterlife-restart-backend')
-assert.equal(backendRestart.order, 130)
-const backendElement = backendRestart.data.render()
-const backendButton = backendElement.type(backendElement.props)
-assert.equal(backendButton.type, 'button')
-assert.equal(backendButton.props.title, 'Backend neu starten')
-assert.equal(backendButton.props.children.type, 'refresh-icon')
-await backendButton.props.onClick()
+const gatewayRestart = registrations.find(item => item.id === 'betterlife-restart-gateway')
+assert.equal(gatewayRestart.order, 130)
+const gatewayElement = gatewayRestart.data.render()
+const gatewayButton = gatewayElement.type(gatewayElement.props)
+assert.equal(gatewayButton.type, 'button')
+assert.equal(gatewayButton.props.title, 'Gateway neu starten')
+assert.equal(gatewayButton.props.children[0].type, 'refresh-icon')
+assert.equal(gatewayButton.props.children[1].props.children, 'Gateway')
+assert.equal(gatewayButton.props.style.width, '28px')
+assert.equal(gatewayButton.props.children[1].props.style.maxWidth, '0')
+assert.equal(typeof gatewayButton.props.onMouseEnter, 'function')
+assert.equal(typeof gatewayButton.props.onMouseLeave, 'function')
+await gatewayButton.props.onClick()
 assert.equal(restartCalls, 1)
 assert.equal(hapticCalls, 1)
 
+const hermesRestart = registrations.find(item => item.id === 'betterlife-restart-hermes')
+assert.equal(hermesRestart.order, 140)
+const hermesElement = hermesRestart.data.render()
+const hermesButton = hermesElement.type(hermesElement.props)
+assert.equal(hermesButton.props.title, 'Hermes neu starten')
+assert.equal(hermesButton.props.children[1].props.children, 'Hermes')
+await hermesButton.props.onClick()
+assert.equal(hermesRestartCalls, 1)
+assert.equal(reloadCalls, 1)
+assert.equal(hapticCalls, 2)
+
 const clientRestart = registrations.find(item => item.id === 'betterlife-restart-client')
-assert.equal(clientRestart.order, 140)
+assert.equal(clientRestart.order, 150)
 const clientElement = clientRestart.data.render()
 const clientButton = clientElement.type(clientElement.props)
 assert.equal(clientButton.type, 'button')
 assert.equal(clientButton.props.title, 'Client neu starten')
 await clientButton.props.onClick()
-assert.equal(reloadCalls, 1)
-assert.equal(hapticCalls, 2)
+assert.equal(reloadCalls, 2)
+assert.equal(hapticCalls, 3)
+assert.equal(notifyErrorCalls, 0)
 
 console.log('smoke: PASS — Cronjobs navigation, provider chips, restart action and lifecycle verified')

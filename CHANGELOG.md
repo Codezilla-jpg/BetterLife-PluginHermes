@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.4 — 2026-08-08
+
+### Changed
+
+- Drei getrennte Restart-Räder für **Client**, **Gateway** und **Hermes**.
+- Beim Hover erweitert sich jedes Rad und zeigt seinen kurzen Zielnamen.
+- Der Hermes-Neustart setzt die Desktop-verwaltete Backend-Instanz zurück und verbindet den Client anschließend neu.
+
 ## 0.4.3 — 2026-08-08
 
 ### Changed

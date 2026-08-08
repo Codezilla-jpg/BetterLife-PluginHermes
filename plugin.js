@@ -4,14 +4,14 @@ import { jsx } from 'react/jsx-runtime'
 
 const ID = 'statusline-workspaces'
 const NAME = 'BetterLife'
-const VERSION = '0.4.3'
+const VERSION = '0.4.4'
 const PROVIDER_POLL_MS = 5 * 60_000
 const CONTEXT_POLL_MS = 60_000
 const CLOCK_POLL_MS = 60_000
 const CHIP_CLASS =
   'inline-flex h-full items-center px-1.5 text-[0.6875rem] text-(--ui-text-tertiary)'
 const RESTART_CLASS =
-  'inline-flex h-full w-7 items-center justify-center text-(--ui-text-tertiary) transition-colors hover:text-(--ui-text-primary) disabled:opacity-50'
+  'inline-flex h-full items-center justify-center overflow-hidden whitespace-nowrap disabled:opacity-50'
 const { RefreshCw } = icons
 
 const finite = value =>
@@ -142,18 +142,28 @@ function ClockChip() {
 
 function RestartButton({ target }) {
   const [restarting, setRestarting] = useState(false)
+  const [hovered, setHovered] = useState(false)
   const client = target === 'client'
-  const targetLabel = client ? 'Client' : 'Backend'
+  const hermes = target === 'hermes'
+  const targetLabel = client ? 'Client' : hermes ? 'Hermes' : 'Gateway'
+  const expandedWidth = `${Math.max(64, targetLabel.length * 7 + 32)}px`
   const restart = async () => {
     if (restarting) return
     haptic('tap')
     setRestarting(true)
-    if (client) {
-      window.location.reload()
-      return
-    }
     try {
-      await host.restartGateway()
+      if (client) {
+        window.location.reload()
+      } else if (hermes) {
+        const resetBootstrap = window.hermesDesktop?.resetBootstrap
+        if (typeof resetBootstrap !== 'function') throw new Error('Desktop restart capability unavailable')
+        await resetBootstrap()
+        window.location.reload()
+      } else {
+        await host.restartGateway()
+      }
+    } catch (error) {
+      host.notifyError(error, `${targetLabel}-Neustart fehlgeschlagen`)
     } finally {
       setRestarting(false)
     }
@@ -162,11 +172,32 @@ function RestartButton({ target }) {
   return jsx('button', {
     type: 'button',
     className: RESTART_CLASS,
+    style: {
+      color: hovered ? 'var(--ui-text-primary)' : 'var(--ui-text-tertiary)',
+      paddingInline: hovered ? '6px' : '0',
+      transition: 'width 150ms ease, padding 150ms ease, color 150ms ease',
+      width: hovered ? expandedWidth : '28px'
+    },
     disabled: restarting,
     'aria-label': restarting ? `${targetLabel} wird neu gestartet` : `${targetLabel} neu starten`,
     title: restarting ? `${targetLabel} wird neu gestartet…` : `${targetLabel} neu starten`,
+    onMouseEnter: () => setHovered(true),
+    onMouseLeave: () => setHovered(false),
     onClick: restart,
-    children: jsx(RefreshCw, { className: `size-3${restarting ? ' animate-spin' : ''}` })
+    children: [
+      jsx(RefreshCw, { className: `size-3 shrink-0${restarting ? ' animate-spin' : ''}`, key: 'icon' }),
+      jsx('span', {
+        style: {
+          marginLeft: hovered ? '4px' : '0',
+          maxWidth: hovered ? '64px' : '0',
+          opacity: hovered ? 1 : 0,
+          overflow: 'hidden',
+          transition: 'max-width 150ms ease, margin 150ms ease, opacity 150ms ease'
+        },
+        children: targetLabel,
+        key: 'label'
+      })
+    ]
   })
 }
 
@@ -229,19 +260,29 @@ const plugin = {
         }
       },
       {
-        id: 'betterlife-restart-backend',
+        id: 'betterlife-restart-gateway',
         area: STATUSBAR_AREAS.right,
         order: 130,
         data: {
-          id: 'betterlife-restart-backend',
-          render: () => jsx(RestartButton, { target: 'backend' }),
-          toggleLabel: 'Backend restart'
+          id: 'betterlife-restart-gateway',
+          render: () => jsx(RestartButton, { target: 'gateway' }),
+          toggleLabel: 'Gateway restart'
+        }
+      },
+      {
+        id: 'betterlife-restart-hermes',
+        area: STATUSBAR_AREAS.right,
+        order: 140,
+        data: {
+          id: 'betterlife-restart-hermes',
+          render: () => jsx(RestartButton, { target: 'hermes' }),
+          toggleLabel: 'Hermes restart'
         }
       },
       {
         id: 'betterlife-restart-client',
         area: STATUSBAR_AREAS.right,
-        order: 140,
+        order: 150,
         data: {
           id: 'betterlife-restart-client',
           render: () => jsx(RestartButton, { target: 'client' }),
