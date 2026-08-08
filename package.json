@@ -1,6 +1,6 @@
 {
   "name": "betterlife-plugin-hermes",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "private": true,
   "description": "Hermes Desktop sidebar access to cron jobs plus Codex/Grok quotas, context and local time",
   "type": "module",
@@ -8,7 +8,7 @@
     "check": "node --check plugin.js && python3 -m py_compile backend/dashboard/plugin_api.py",
     "test": "node --experimental-vm-modules tests/smoke.mjs && python3 -m unittest tests/test_backend.py",
     "package": "python3 scripts/package.py",
-    "verify": "npm run check && npm test && npm run package && cd dist && sha256sum -c betterlife-plugin-hermes-v0.4.2.zip.sha256"
+    "verify": "npm run check && npm test && npm run package && cd dist && sha256sum -c betterlife-plugin-hermes-v0.4.3.zip.sha256"
   },
   "engines": {
     "node": ">=22 <25"

@@ -10,6 +10,7 @@ const source = fs.readFileSync(pluginPath, 'utf8')
 const registrations = []
 let restartCalls = 0
 let hapticCalls = 0
+let reloadCalls = 0
 
 assert.doesNotMatch(source, /SESSION_ACTIONS_AREA|selectWorkspaceDirectory|setSessionWorkspace|usage\.bars|ctx\.onDispose/)
 assert.match(source, /ctx\.rest/)
@@ -45,6 +46,13 @@ const jsxRuntime = {
 
 const sandbox = {
   console,
+  window: {
+    location: {
+      reload() {
+        reloadCalls += 1
+      }
+    }
+  },
   clearInterval() {},
   setInterval() {
     return 1
@@ -80,7 +88,7 @@ const {
   VERSION
 } = mod.namespace
 
-assert.equal(VERSION, '0.4.2')
+assert.equal(VERSION, '0.4.3')
 assert.equal(plugin.id, 'statusline-workspaces')
 assert.equal(plugin.name, 'BetterLife')
 assert.equal(plugin.version, VERSION)
@@ -154,7 +162,8 @@ assert.deepEqual(
     'betterlife-grok-usage',
     'betterlife-context-usage',
     'betterlife-local-clock',
-    'betterlife-restart-gateway'
+    'betterlife-restart-backend',
+    'betterlife-restart-client'
   ]
 )
 const nav = registrations[0]
@@ -174,15 +183,25 @@ for (const contribution of statusItems) {
   assert.equal(typeof element.type, 'function')
 }
 
-const restartContribution = registrations.at(-1)
-assert.equal(restartContribution.order, 130)
-const restartElement = restartContribution.data.render()
-const restartButton = restartElement.type(restartElement.props)
-assert.equal(restartButton.type, 'button')
-assert.equal(restartButton.props.title, 'Gateway neu starten')
-assert.equal(restartButton.props.children.type, 'refresh-icon')
-await restartButton.props.onClick()
+const backendRestart = registrations.find(item => item.id === 'betterlife-restart-backend')
+assert.equal(backendRestart.order, 130)
+const backendElement = backendRestart.data.render()
+const backendButton = backendElement.type(backendElement.props)
+assert.equal(backendButton.type, 'button')
+assert.equal(backendButton.props.title, 'Backend neu starten')
+assert.equal(backendButton.props.children.type, 'refresh-icon')
+await backendButton.props.onClick()
 assert.equal(restartCalls, 1)
 assert.equal(hapticCalls, 1)
+
+const clientRestart = registrations.find(item => item.id === 'betterlife-restart-client')
+assert.equal(clientRestart.order, 140)
+const clientElement = clientRestart.data.render()
+const clientButton = clientElement.type(clientElement.props)
+assert.equal(clientButton.type, 'button')
+assert.equal(clientButton.props.title, 'Client neu starten')
+await clientButton.props.onClick()
+assert.equal(reloadCalls, 1)
+assert.equal(hapticCalls, 2)
 
 console.log('smoke: PASS — Cronjobs navigation, provider chips, restart action and lifecycle verified')

@@ -4,7 +4,7 @@ import { jsx } from 'react/jsx-runtime'
 
 const ID = 'statusline-workspaces'
 const NAME = 'BetterLife'
-const VERSION = '0.4.2'
+const VERSION = '0.4.3'
 const PROVIDER_POLL_MS = 5 * 60_000
 const CONTEXT_POLL_MS = 60_000
 const CLOCK_POLL_MS = 60_000
@@ -140,12 +140,18 @@ function ClockChip() {
   return jsx(StatusChip, { ...clockStatusItem(now) })
 }
 
-function RestartChip() {
+function RestartButton({ target }) {
   const [restarting, setRestarting] = useState(false)
+  const client = target === 'client'
+  const targetLabel = client ? 'Client' : 'Backend'
   const restart = async () => {
     if (restarting) return
     haptic('tap')
     setRestarting(true)
+    if (client) {
+      window.location.reload()
+      return
+    }
     try {
       await host.restartGateway()
     } finally {
@@ -157,8 +163,8 @@ function RestartChip() {
     type: 'button',
     className: RESTART_CLASS,
     disabled: restarting,
-    'aria-label': restarting ? 'Gateway wird neu gestartet' : 'Gateway neu starten',
-    title: restarting ? 'Gateway wird neu gestartet…' : 'Gateway neu starten',
+    'aria-label': restarting ? `${targetLabel} wird neu gestartet` : `${targetLabel} neu starten`,
+    title: restarting ? `${targetLabel} wird neu gestartet…` : `${targetLabel} neu starten`,
     onClick: restart,
     children: jsx(RefreshCw, { className: `size-3${restarting ? ' animate-spin' : ''}` })
   })
@@ -223,13 +229,23 @@ const plugin = {
         }
       },
       {
-        id: 'betterlife-restart-gateway',
+        id: 'betterlife-restart-backend',
         area: STATUSBAR_AREAS.right,
         order: 130,
         data: {
-          id: 'betterlife-restart-gateway',
-          render: () => jsx(RestartChip, {}),
-          toggleLabel: 'Gateway restart'
+          id: 'betterlife-restart-backend',
+          render: () => jsx(RestartButton, { target: 'backend' }),
+          toggleLabel: 'Backend restart'
+        }
+      },
+      {
+        id: 'betterlife-restart-client',
+        area: STATUSBAR_AREAS.right,
+        order: 140,
+        data: {
+          id: 'betterlife-restart-client',
+          render: () => jsx(RestartButton, { target: 'client' }),
+          toggleLabel: 'Client restart'
         }
       }
     ])

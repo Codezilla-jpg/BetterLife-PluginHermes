@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.3 — 2026-08-08
+
+### Changed
+
+- Die Restart-Anzeige besteht jetzt aus zwei Rädern: eines für den Desktop-Client und eines für das verbundene Backend.
+- Das Client-Rad lädt die Desktop-Oberfläche neu; das Backend-Rad nutzt den nativen Gateway-Neustart.
+
 ## 0.4.2 — 2026-08-08
 
 ### Added

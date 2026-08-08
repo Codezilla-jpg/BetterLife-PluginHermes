@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "statusline-workspaces",
   "name": "BetterLife",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "entrypoint": "plugin.js",
   "backend": "backend/dashboard/plugin_api.py",
   "compatibility": {
@@ -15,6 +15,7 @@
       "PluginContext.rest",
       "host.restartGateway",
       "icons.RefreshCw",
+      "window.location.reload",
       "useQuery",
       "useValue",
       "session.context_breakdown",
