@@ -1,6 +1,6 @@
 # BetterLife – Hermes Plugin
 
-BetterLife ergänzt Hermes Desktop um eine Cronjob-Verwaltung in der Session-Bar und vier kompakte Anzeigen in der Statusleiste.
+BetterLife ergänzt Hermes Desktop um eine Cronjob-Verwaltung in der Session-Bar, einen Gateway-Neustart und vier kompakte Anzeigen in der Statusleiste.
 
 ## Was BetterLife bisher macht
 
@@ -9,6 +9,7 @@ BetterLife ergänzt Hermes Desktop um eine Cronjob-Verwaltung in der Session-Bar
 - **Grok:** Primärwert entspricht **Grok Build** in der offiziellen Oberfläche; das separate Monatskontingent bleibt im Detail sichtbar.
 - **Ctx:** Kontextauslastung der aktiven Session.
 - **Uhrzeit:** lokale Zeit im 24-Stunden-Format ohne AM/PM.
+- **Restart-Rad:** startet das verbundene Hermes-Gateway direkt links neben der Client-Version neu.
 
 ## Architektur
 
@@ -53,6 +54,7 @@ Hermes Desktop lädt Dateiänderungen automatisch; andernfalls die App einmal ne
 - Hover über **Codex** oder **Grok** zeigt Zeitfenster und Reset-Zeiten.
 - Hover über **Ctx** zeigt Tokenbudget und Kontextkategorien.
 - Rechtsklick auf die Statusleiste blendet einzelne Anzeigen ein oder aus.
+- Das Restart-Rad links neben der Client-Version startet das verbundene Gateway neu und dreht sich während des Neustarts.
 
 ## Entwicklung
 

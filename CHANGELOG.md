@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.2 — 2026-08-08
+
+### Added
+
+- Restart-Rad direkt links neben der Client-Version.
+- Ein Klick startet das verbundene Hermes-Gateway neu; währenddessen dreht sich das Rad und ist gegen Doppelklicks gesperrt.
+
 ## 0.4.1 — 2026-08-08
 
 ### Fixed

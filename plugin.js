@@ -1,15 +1,18 @@
-import { SIDEBAR_NAV_AREA, STATUSBAR_AREAS, host, useQuery, useValue } from '@hermes/plugin-sdk'
+import { SIDEBAR_NAV_AREA, STATUSBAR_AREAS, haptic, host, icons, useQuery, useValue } from '@hermes/plugin-sdk'
 import { useEffect, useState } from 'react'
 import { jsx } from 'react/jsx-runtime'
 
 const ID = 'statusline-workspaces'
 const NAME = 'BetterLife'
-const VERSION = '0.4.1'
+const VERSION = '0.4.2'
 const PROVIDER_POLL_MS = 5 * 60_000
 const CONTEXT_POLL_MS = 60_000
 const CLOCK_POLL_MS = 60_000
 const CHIP_CLASS =
   'inline-flex h-full items-center px-1.5 text-[0.6875rem] text-(--ui-text-tertiary)'
+const RESTART_CLASS =
+  'inline-flex h-full w-7 items-center justify-center text-(--ui-text-tertiary) transition-colors hover:text-(--ui-text-primary) disabled:opacity-50'
+const { RefreshCw } = icons
 
 const finite = value =>
   value === null || value === undefined || value === '' || !Number.isFinite(Number(value)) ? null : Number(value)
@@ -137,6 +140,30 @@ function ClockChip() {
   return jsx(StatusChip, { ...clockStatusItem(now) })
 }
 
+function RestartChip() {
+  const [restarting, setRestarting] = useState(false)
+  const restart = async () => {
+    if (restarting) return
+    haptic('tap')
+    setRestarting(true)
+    try {
+      await host.restartGateway()
+    } finally {
+      setRestarting(false)
+    }
+  }
+
+  return jsx('button', {
+    type: 'button',
+    className: RESTART_CLASS,
+    disabled: restarting,
+    'aria-label': restarting ? 'Gateway wird neu gestartet' : 'Gateway neu starten',
+    title: restarting ? 'Gateway wird neu gestartet…' : 'Gateway neu starten',
+    onClick: restart,
+    children: jsx(RefreshCw, { className: `size-3${restarting ? ' animate-spin' : ''}` })
+  })
+}
+
 const plugin = {
   id: ID,
   name: NAME,
@@ -193,6 +220,16 @@ const plugin = {
           id: 'betterlife-local-clock',
           render: () => jsx(ClockChip, {}),
           toggleLabel: 'Local clock'
+        }
+      },
+      {
+        id: 'betterlife-restart-gateway',
+        area: STATUSBAR_AREAS.right,
+        order: 130,
+        data: {
+          id: 'betterlife-restart-gateway',
+          render: () => jsx(RestartChip, {}),
+          toggleLabel: 'Gateway restart'
         }
       }
     ])

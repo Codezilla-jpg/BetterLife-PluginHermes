@@ -8,6 +8,8 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 const pluginPath = path.join(repoRoot, 'plugin.js')
 const source = fs.readFileSync(pluginPath, 'utf8')
 const registrations = []
+let restartCalls = 0
+let hapticCalls = 0
 
 assert.doesNotMatch(source, /SESSION_ACTIONS_AREA|selectWorkspaceDirectory|setSessionWorkspace|usage\.bars|ctx\.onDispose/)
 assert.match(source, /ctx\.rest/)
@@ -18,8 +20,16 @@ const activeSessionId = { get: () => null, subscribe: () => () => {} }
 const sdk = {
   host: {
     state: { activeSessionId },
-    request: async () => ({ available: false })
+    request: async () => ({ available: false }),
+    restartGateway: async () => {
+      restartCalls += 1
+    }
   },
+  haptic: kind => {
+    assert.equal(kind, 'tap')
+    hapticCalls += 1
+  },
+  icons: { RefreshCw: 'refresh-icon' },
   SIDEBAR_NAV_AREA: 'sidebar.nav',
   STATUSBAR_AREAS: { left: 'statusBar.left', right: 'statusBar.right' },
   useQuery: options => ({ data: options.enabled === false ? undefined : { providers: [] } }),
@@ -70,7 +80,7 @@ const {
   VERSION
 } = mod.namespace
 
-assert.equal(VERSION, '0.4.1')
+assert.equal(VERSION, '0.4.2')
 assert.equal(plugin.id, 'statusline-workspaces')
 assert.equal(plugin.name, 'BetterLife')
 assert.equal(plugin.version, VERSION)
@@ -143,7 +153,8 @@ assert.deepEqual(
     'betterlife-codex-usage',
     'betterlife-grok-usage',
     'betterlife-context-usage',
-    'betterlife-local-clock'
+    'betterlife-local-clock',
+    'betterlife-restart-gateway'
   ]
 )
 const nav = registrations[0]
@@ -163,4 +174,15 @@ for (const contribution of statusItems) {
   assert.equal(typeof element.type, 'function')
 }
 
-console.log('smoke: PASS — Cronjobs navigation, provider chips and lifecycle verified')
+const restartContribution = registrations.at(-1)
+assert.equal(restartContribution.order, 130)
+const restartElement = restartContribution.data.render()
+const restartButton = restartElement.type(restartElement.props)
+assert.equal(restartButton.type, 'button')
+assert.equal(restartButton.props.title, 'Gateway neu starten')
+assert.equal(restartButton.props.children.type, 'refresh-icon')
+await restartButton.props.onClick()
+assert.equal(restartCalls, 1)
+assert.equal(hapticCalls, 1)
+
+console.log('smoke: PASS — Cronjobs navigation, provider chips, restart action and lifecycle verified')
