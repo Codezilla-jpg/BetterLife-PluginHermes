@@ -1,31 +1,30 @@
 # BetterLife – Hermes Plugin
 
-BetterLife ergänzt Hermes Desktop um eine Cronjob-Verwaltung in der Session-Bar, drei Neustart-Aktionen und vier kompakte Anzeigen in der Statusleiste.
+BetterLife bündelt Provider-Limits, lokale Uhrzeit und Neustart-Aktionen in einem Hermes-Desktop-Plugin.
 
-## Was BetterLife bisher macht
+## Funktionen
 
-- **Cronjobs:** Eintrag in der Session-Bar öffnet die native Hermes-Verwaltung mit Übersicht, Erstellen, Bearbeiten, Pausieren, Starten und Löschen.
-- **Codex:** Account-Limits.
-- **Grok:** Primärwert entspricht **Grok Build** in der offiziellen Oberfläche; das separate Monatskontingent bleibt im Detail sichtbar.
-- **Ctx:** Kontextauslastung der aktiven Session.
-- **Uhrzeit:** lokale Zeit im 24-Stunden-Format ohne AM/PM.
-- **Drei Restart-Räder:** laden den Desktop-Client neu, starten das Messaging-Gateway oder die verbundene Hermes-Instanz neu.
-- **Hover-Namen:** Die Räder erweitern sich beim Darüberfahren kurz zu **Client**, **Gateway** oder **Hermes**.
+- **Limits-Pane:** Restkontingent-Ringe für Nous Research, OpenAI Codex und xAI Grok.
+- **Kontodetails:** Provider, Account, Tarif und nächste Reset-Zeit.
+- **Uhrzeit:** lokale Zeit im 24-Stunden-Format.
+- **Neustarts:** Client, Messaging-Gateway oder verbundene Hermes-Instanz.
+- **Hover-Namen:** Die drei Restart-Räder erweitern sich zu **Client**, **Gateway** oder **Hermes**.
+
+Die technische Plugin-ID bleibt aus Kompatibilitätsgründen `statusline-workspaces`.
+Das eigenständige `provider-limits`-Plugin wird nach der Installation nicht mehr benötigt.
 
 ## Architektur
 
-Das Plugin besteht aus zwei kleinen Teilen:
-
-1. `plugin.js` rendert die Statusleisten-Anzeigen mit der offiziellen Desktop-Plugin-SDK.
-2. `backend/dashboard/plugin_api.py` liest die Provider-Limits serverseitig und führt die festen Gateway-/Hermes-Neustarts auf dem verbundenen Host aus.
-
-Die technische Plugin-ID bleibt aus Kompatibilitätsgründen `statusline-workspaces`.
+- `plugin.js` registriert die Limits-Pane sowie Uhr und Restart-Aktionen in der Statusleiste.
+- `backend/dashboard/plugin_api.py` liest die Provider-Kontingente serverseitig und führt feste Neustart-Aktionen aus.
 
 ## Datenquellen
 
-- Codex: `agent.account_usage.fetch_account_usage("openai-codex")`
-- Grok: `https://cli-chat-proxy.grok.com/v1/billing`
-- Kontext: `session.context_breakdown`
+- Nous: Hermes-Nous-Portal-Account.
+- Codex: Codex-Usage-Endpunkt mit Fallback auf `agent.account_usage`.
+- Grok: `https://cli-chat-proxy.grok.com/v1/billing`.
+
+Credentials bleiben im Hermes-Backend und werden nie an den Renderer übertragen.
 
 ## Installation
 
@@ -34,11 +33,11 @@ Die technische Plugin-ID bleibt aus Kompatibilitätsgründen `statusline-workspa
 ```bash
 mkdir -p ~/.hermes/plugins/statusline-workspaces/dashboard
 cp {plugin.yaml,__init__.py} ~/.hermes/plugins/statusline-workspaces/
-cp backend/dashboard/{manifest.json,plugin_api.py} ~/.hermes/plugins/statusline-workspaces/dashboard/
+cp backend/dashboard/{manifest.json,plugin_api.py,restart_helper.py} ~/.hermes/plugins/statusline-workspaces/dashboard/
 hermes plugins enable statusline-workspaces
 ```
 
-Danach den Hermes-Gateway-/Dashboard-Prozess neu starten.
+Danach Gateway beziehungsweise Dashboard neu starten.
 
 ### Hermes Desktop
 
@@ -47,15 +46,7 @@ mkdir -p ~/.hermes/desktop-plugins/statusline-workspaces
 cp plugin.js ~/.hermes/desktop-plugins/statusline-workspaces/plugin.js
 ```
 
-Hermes Desktop lädt Dateiänderungen automatisch; andernfalls die App einmal neu starten.
-
-## Bedienung
-
-- **Cronjobs** in der Session-Bar öffnet die vollständige native Cron-Verwaltung.
-- Hover über **Codex** oder **Grok** zeigt Zeitfenster und Reset-Zeiten.
-- Hover über **Ctx** zeigt Tokenbudget und Kontextkategorien.
-- Rechtsklick auf die Statusleiste blendet einzelne Anzeigen ein oder aus.
-- Die drei Restart-Räder links neben der Client-Version starten Client, System-Gateway oder die aktuell verbundene Hermes-Backend-Instanz neu; Hover blendet den kurzen Zielnamen ein.
+Hermes Desktop lädt Dateiänderungen automatisch. Falls das Plugin bereits deaktiviert war, muss es in **Settings → Plugins** wieder aktiviert werden.
 
 ## Entwicklung
 

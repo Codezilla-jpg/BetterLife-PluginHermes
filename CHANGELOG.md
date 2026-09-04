@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.5.0 — 2026-08-25
+
+### Added
+
+- Das bisher eigenständige Limits-Plugin ist jetzt als native **Limits**-Pane integriert.
+- Irideszente Restkontingent-Ringe für Nous, Codex und Grok mit Account, Tarif und Reset-Zeit.
+- Erweiterte Codex-Modellfenster und Nous-Portal-Kontingente im BetterLife-Backend.
+
+### Simplified
+
+- Cronjobs-Link in der Seitenleiste entfernt.
+- Alte Codex-/Grok-Nutzungs-Chips und Kontextauslastungs-Chip aus der Statusleiste entfernt.
+- Provider-Limits sind in einer einzigen Pane statt in mehreren Statusleisten-Chips gebündelt.
+
+### Fixed
+
+- Grok-Ring und Reset-Zeit folgen gemeinsam dem Grok-Build-Fenster.
+- Manueller Refresh umgeht den Backend-Cache und aktualisiert den Query-Cache direkt.
+- Provider werden parallel geladen; gleichzeitige Refreshes teilen sich einen Lauf.
+- Codex-Requests behalten die Account-ID, Nous ohne Kontingent wird korrekt als nicht verfügbar markiert.
+- Quotenringe zeigen „übrig“ statt „links“; größere Ringe, kompaktere Typografie und schmalere Infoboxen verbessern die Proportionen.
+
+### Unchanged
+
+- Statusleiste zeigt die lokale 24-Stunden-Uhr plus die drei Restart-Räder für Client, Gateway und Hermes.
+
 ## 0.4.5 — 2026-08-08
 
 ### Fixed

@@ -1,7 +1,7 @@
 {
   "name": "statusline-workspaces",
   "label": "BetterLife",
-  "description": "Provider quota backend for the BetterLife desktop plugin.",
-  "version": "0.4.5",
+  "description": "Provider limits and restart backend for the BetterLife desktop plugin.",
+  "version": "0.5.0",
   "api": "plugin_api.py"
 }
