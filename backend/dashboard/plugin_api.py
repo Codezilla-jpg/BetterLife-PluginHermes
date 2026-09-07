@@ -523,9 +523,137 @@ def list_host_dir(path: str = "") -> dict[str, Any]:
     return {"path": str(target), "parent": parent, "entries": entries}
 
 
+def _canon_profile(name: str) -> str:
+    text = str(name or "").strip()
+    if not text:
+        return "default"
+    try:
+        from hermes_cli.profiles import normalize_profile_name
+
+        return normalize_profile_name(text)
+    except Exception:
+        return text.lower()
+
+
+def session_is_running(session_id: str) -> bool:
+    sid = str(session_id or "").strip()
+    if not sid:
+        return False
+    server = sys.modules.get("tui_gateway.server")
+    if server is None:
+        return False
+    sessions = getattr(server, "_sessions", {}) or {}
+
+    def _scan() -> bool:
+        for sess in list(sessions.values()):
+            if not isinstance(sess, dict):
+                continue
+            keys = {
+                str(sess.get("session_key") or "").strip(),
+                str(sess.get("id") or "").strip(),
+                str(sess.get("session_id") or "").strip(),
+            }
+            if sid in keys and sess.get("running"):
+                return True
+        return False
+
+    lock = getattr(server, "_sessions_lock", None)
+    if lock is not None:
+        with lock:
+            return _scan()
+    return _scan()
+
+
+def _open_profile_session_db(name: str):
+    from hermes_cli.profiles import get_profile_dir, profile_exists
+    from hermes_state import SessionDB
+
+    canon = _canon_profile(name)
+    if not profile_exists(canon):
+        raise FileNotFoundError(f"unknown profile: {canon}")
+    return SessionDB(db_path=get_profile_dir(canon) / "state.db")
+
+
+def _close_db(db: Any) -> None:
+    closer = getattr(db, "close", None)
+    if closer is None:
+        return
+    try:
+        closer()
+    except Exception:
+        _LOGGER.debug("session db close failed", exc_info=True)
+
+
+def move_session_to_profile(
+    session_id: str,
+    from_profile: str,
+    to_profile: str,
+    *,
+    running_check: Any = None,
+    db_opener: Any = None,
+) -> dict[str, Any]:
+    sid = str(session_id or "").strip()
+    if not sid:
+        raise ValueError("session_id required")
+    src = _canon_profile(from_profile)
+    dst = _canon_profile(to_profile)
+    if src == dst:
+        return {
+            "ok": True,
+            "unchanged": True,
+            "session_id": sid,
+            "from_profile": src,
+            "to_profile": dst,
+        }
+    check = running_check or session_is_running
+    if check(sid):
+        raise PermissionError("session is running")
+    opener = db_opener or _open_profile_session_db
+    source_db = opener(src)
+    dest_db = None
+    try:
+        if source_db.get_session(sid) is None and not source_db.export_session_lineage(sid):
+            raise FileNotFoundError(f"session not found: {sid}")
+        dest_db = opener(dst)
+        result = dest_db.adopt_session_lineage_from(source_db, sid, retire_donor=True)
+        if not result.get("adopted"):
+            raise RuntimeError(result.get("error") or "adoption failed")
+        backfill = getattr(dest_db, "backfill_null_session_profiles", None)
+        if backfill is not None:
+            backfill(dst)
+        return {
+            "ok": True,
+            "unchanged": False,
+            "session_id": sid,
+            "from_profile": src,
+            "to_profile": dst,
+            "adopted": True,
+            "donor_retired": bool(result.get("donor_retired")),
+            "imported": result.get("imported"),
+            "skipped": result.get("skipped"),
+        }
+    finally:
+        _close_db(source_db)
+        _close_db(dest_db)
+
+
 @router.get("/fs/list")
 async def fs_list(path: str = "") -> dict[str, Any]:
     return await asyncio.to_thread(list_host_dir, path)
+
+
+@router.post("/session/move")
+async def session_move(session_id: str = "", from_profile: str = "", to_profile: str = "") -> dict[str, Any]:
+    try:
+        return await asyncio.to_thread(move_session_to_profile, session_id, from_profile, to_profile)
+    except PermissionError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"session move failed: {exc}") from exc
 
 
 @router.get("/usage")

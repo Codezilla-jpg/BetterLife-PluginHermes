@@ -14,12 +14,15 @@ let notifyErrorCalls = 0
 const restCalls = []
 const queryCacheUpdates = []
 const newChatCalls = []
+const openSessionCalls = []
 const requestCalls = []
 const liveState = {
   activeSessionId: null,
   storedId: null,
   profile: 'developer',
-  cwd: '/home/hermes/1_Projekte/BetterLife-PluginHermes'
+  cwd: '/home/hermes/1_Projekte/BetterLife-PluginHermes',
+  busy: false,
+  busyBySession: {}
 }
 
 assert.doesNotMatch(source, /SIDEBAR_NAV_AREA|providerStatusItem|contextStatusItem/)
@@ -32,6 +35,10 @@ const sdk = {
   host: {
     notifyError: () => {
       notifyErrorCalls += 1
+    },
+    notify: () => {},
+    openSession: async (id, options) => {
+      openSessionCalls.push({ id, options })
     },
     newChat: name => {
       newChatCalls.push(name)
@@ -66,7 +73,9 @@ const sdk = {
       focusedStoredSessionId: { get: () => liveState.storedId },
       focusedSessionProfile: { get: () => liveState.profile },
       profile: { get: () => liveState.profile },
-      cwd: { get: () => liveState.cwd }
+      cwd: { get: () => liveState.cwd },
+      busy: { get: () => liveState.busy },
+      busyBySession: { get: () => liveState.busyBySession }
     }
   },
   haptic: kind => {
@@ -153,7 +162,9 @@ const sandbox = {
   setTimeout(callback) {
     callback()
     return 1
-  }
+  },
+  encodeURIComponent,
+  decodeURIComponent
 }
 const context = vm.createContext(sandbox)
 const synthetic = (identifier, values) => {
@@ -182,6 +193,8 @@ const {
   clockStatusItem,
   defaultPickerPath,
   isComposerDraft,
+  isSessionRunning,
+  moveStoredSessionProfile,
   parentDir,
   pathCrumbs,
   projectChoices,
@@ -211,6 +224,16 @@ const ctx = {
           { name: 'BetterLife-PluginHermes', path: '/home/hermes/1_Projekte/BetterLife-PluginHermes', isDirectory: true },
           { name: 'README.md', path: '/home/hermes/1_Projekte/README.md', isDirectory: false }
         ]
+      }
+    }
+    if (String(path).startsWith('/session/move')) {
+      const query = new URL(path, 'http://local').searchParams
+      return {
+        ok: true,
+        session_id: query.get('session_id'),
+        from_profile: query.get('from_profile'),
+        to_profile: query.get('to_profile'),
+        adopted: true
       }
     }
     return { ok: true }
@@ -355,6 +378,10 @@ assert.equal(notifyErrorCalls, 0)
 assert.equal(isComposerDraft(null, null), true)
 assert.equal(isComposerDraft('s1', null), false)
 assert.equal(isComposerDraft(null, 'stored'), false)
+assert.equal(isSessionRunning(null, false, {}), false)
+assert.equal(isSessionRunning('live-1', true, {}), true)
+assert.equal(isSessionRunning('live-1', false, { 'live-1': true }), true)
+assert.equal(isSessionRunning('live-1', false, {}), false)
 assert.equal(workspaceLabel('/home/hermes/1_Projekte/BetterLife-PluginHermes'), 'BetterLife-PluginHermes')
 assert.equal(parentDir('/home/hermes/1_Projekte'), '/home/hermes')
 assert.equal(parentDir('/'), '/')
@@ -382,6 +409,21 @@ assert.equal(await applyWorkspaceCwd('/tmp/run', { sessionId: 'rt-1' }), true)
 assert.equal(requestCalls.at(-1).method, 'session.cwd.set')
 assert.equal(requestCalls.at(-1).params.session_id, 'rt-1')
 assert.equal(requestCalls.at(-1).params.cwd, '/tmp/run')
+assert.equal(
+  await moveStoredSessionProfile({
+    storedId: 'stored-1',
+    fromProfile: 'developer',
+    toProfile: 'personal',
+    rest: ctx.rest
+  }),
+  true
+)
+assert.equal(openSessionCalls.length, 1)
+assert.equal(openSessionCalls[0].id, 'stored-1')
+assert.equal(openSessionCalls[0].options.profile, 'personal')
+assert.equal(openSessionCalls[0].options.keepAllProfilesScope, false)
+const moved = restCalls.find(call => String(call.path).startsWith('/session/move'))
+assert.equal(Boolean(moved), true)
 
 const contextContrib = registrations.find(item => item.id === 'betterlife-composer-context')
 assert.equal(contextContrib.area, 'composer.top')
@@ -412,6 +454,15 @@ assert.match(String(draftPicker.props.initialPath), /1_Projekte/)
 
 liveState.activeSessionId = 'live-1'
 liveState.storedId = 'stored-1'
+liveState.busy = false
+const idleBar = contextContrib.render()
+const idleTree = idleBar.type(idleBar.props)
+assert.equal(idleTree.props['data-betterlife-context'], 'idle')
+const idlePillEl = idleTree.props.children[0].type(idleTree.props.children[0].props)
+assert.equal(typeof idlePillEl.props.onOpenChange, 'function')
+assert.equal(idleTree.props.children[1].props.disabled, false)
+
+liveState.busy = true
 const lockedBar = contextContrib.render()
 const lockedTree = lockedBar.type(lockedBar.props)
 assert.equal(lockedTree.props['data-betterlife-context'], 'locked')

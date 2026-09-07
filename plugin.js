@@ -324,6 +324,12 @@ function ClockChip() {
 
 const isComposerDraft = (sessionId, storedId) => !sessionId && !storedId
 
+const isSessionRunning = (sessionId, busy, busyBySession) => {
+  if (busy) return true
+  if (sessionId && busyBySession && busyBySession[sessionId]) return true
+  return false
+}
+
 const pathBasename = value => {
   const text = String(value || '').replace(/[\\/]+$/, '')
   if (!text) return ''
@@ -398,6 +404,36 @@ const applyWorkspaceCwd = async (cwd, { sessionId, storedId } = {}) => {
     return true
   }
   return false
+}
+
+const moveStoredSessionProfile = async ({ storedId, fromProfile, toProfile, rest }) => {
+  const sessionId = String(storedId || '').trim()
+  const dest = String(toProfile || '').trim()
+  const src = String(fromProfile || '').trim()
+  if (!sessionId || !dest || typeof rest !== 'function') return false
+  if (src === dest) return true
+  haptic('tap')
+  const query = [
+    ['session_id', sessionId],
+    ['from_profile', src],
+    ['to_profile', dest]
+  ]
+    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
+    .join('&')
+  const result = await rest(`/session/move?${query}`, { method: 'POST', timeoutMs: 45_000 })
+  if (!result?.ok) {
+    throw new Error(result?.detail || result?.error || 'Profilwechsel fehlgeschlagen')
+  }
+  if (result.unchanged) return true
+  if (typeof host.notify === 'function') {
+    host.notify({ kind: 'info', message: `Chat nach ${dest} verschoben` })
+  }
+  if (typeof host.openSession === 'function') {
+    await host.openSession(sessionId, { keepAllProfilesScope: false, profile: dest })
+  } else if (typeof host.newChat === 'function') {
+    host.newChat(dest)
+  }
+  return true
 }
 
 function ContextPill({ label, title, locked, onOpen, children }) {
@@ -620,14 +656,18 @@ function ContextBar({ rest }) {
   const storedId = useValue(host.state.focusedStoredSessionId)
   const liveProfile = useValue(host.state.focusedSessionProfile) || useValue(host.state.profile) || 'default'
   const liveCwd = useValue(host.state.cwd) || ''
+  const busy = useValue(host.state.busy)
+  const busyBySession = useValue(host.state.busyBySession) || {}
   const draft = isComposerDraft(sessionId, storedId)
+  const running = isSessionRunning(sessionId, busy, busyBySession)
+  const editable = !running
   const [profiles, setProfiles] = useState([])
   const [pendingProfile, setPendingProfile] = useState('')
   const [pendingWorkspace, setPendingWorkspace] = useState(null)
   const [pickerOpen, setPickerOpen] = useState(false)
 
   const profileName = draft && pendingProfile ? pendingProfile : liveProfile
-  const workspace = draft && pendingWorkspace ? pendingWorkspace : { cwd: liveCwd, name: '' }
+  const workspace = pendingWorkspace && editable ? pendingWorkspace : { cwd: liveCwd, name: '' }
   const workspaceName = workspaceLabel(workspace.cwd, workspace.name)
 
   const loadOptions = async () => {
@@ -652,13 +692,22 @@ function ContextBar({ rest }) {
   }, [pendingWorkspace, sessionId, storedId])
 
   const onPickProfile = name => {
-    if (!draft || name === profileName) return
-    setPendingProfile(name)
-    selectDraftProfile(name)
+    if (!editable || name === profileName) return
+    if (draft || !storedId) {
+      setPendingProfile(name)
+      selectDraftProfile(name)
+      return
+    }
+    void moveStoredSessionProfile({
+      fromProfile: liveProfile,
+      rest,
+      storedId,
+      toProfile: name
+    }).catch(error => host.notifyError(error, 'Chat konnte nicht verschoben werden'))
   }
 
   const onPickWorkspace = async choice => {
-    if (!draft || !choice?.cwd) return
+    if (!editable || !choice?.cwd) return
     if (choice.cwd === workspace.cwd) return
     haptic('tap')
     setPendingWorkspace(choice)
@@ -671,9 +720,6 @@ function ContextBar({ rest }) {
         setPendingWorkspace(null)
         return
       }
-      if (choice.id) {
-        await host.request('projects.set_active', { id: choice.id }).catch(() => undefined)
-      }
     } catch (error) {
       host.notifyError(error, 'Workspace konnte nicht gesetzt werden')
     }
@@ -681,13 +727,13 @@ function ContextBar({ rest }) {
 
   return jsx('div', {
     className: 'flex min-w-0 items-center gap-1',
-    'data-betterlife-context': draft ? 'draft' : 'locked',
+    'data-betterlife-context': running ? 'locked' : draft ? 'draft' : 'idle',
     children: [
       jsx(ContextPill, {
         key: 'profile',
         label: profileName,
-        title: draft ? 'Profil wählen' : `Profil: ${profileName}`,
-        locked: !draft,
+        title: editable ? 'Profil wählen' : `Profil: ${profileName} (läuft)`,
+        locked: !editable,
         onOpen: loadOptions,
         children: profiles.map(profile => {
           const name = profileLabel(profile) || profile.name
@@ -702,18 +748,18 @@ function ContextBar({ rest }) {
         key: 'workspace',
         type: 'button',
         variant: 'ghost',
-        disabled: !draft,
+        disabled: !editable,
         className: PILL_CLASS,
-        title: draft ? 'Workspace auf Hermes-Host wählen' : `Workspace: ${workspace.cwd || workspaceName}`,
-        'aria-label': draft ? 'Workspace auf Hermes-Host wählen' : `Workspace: ${workspaceName}`,
+        title: editable ? 'Workspace auf Hermes-Host wählen' : `Workspace: ${workspace.cwd || workspaceName}`,
+        'aria-label': editable ? 'Workspace auf Hermes-Host wählen' : `Workspace: ${workspaceName}`,
         onClick: () => {
-          if (!draft) return
+          if (!editable) return
           haptic('tap')
           setPickerOpen(true)
         },
         children: [
           jsx('span', { key: 'label', className: 'truncate', children: workspaceName }),
-          draft ? jsx(ChevronDown, { key: 'chevron', className: 'size-2.5 shrink-0 opacity-50' }) : null
+          editable ? jsx(ChevronDown, { key: 'chevron', className: 'size-2.5 shrink-0 opacity-50' }) : null
         ]
       }),
       jsx(WorkspacePicker, {
@@ -844,6 +890,8 @@ export {
   clockStatusItem,
   defaultPickerPath,
   isComposerDraft,
+  isSessionRunning,
+  moveStoredSessionProfile,
   parentDir,
   pathCrumbs,
   projectChoices,

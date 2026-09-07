@@ -6,7 +6,8 @@
 
 - Profil- und Workspace-Pills über der Chateingabe, analog zur Modellwahl.
 - Workspace-Auswahl öffnet einen Ordnerbrowser auf dem Hermes-Host; Dateien sind sichtbar, gewählt wird ein Ordner.
-- Im leeren Chat sind beide Pills wählbar; nach der ersten Session bleiben sie fest auf dem aktuellen Profil und Workspace.
+- Im leeren Chat und in **idle** bestehenden Chats sind Profil und Workspace wählbar; während ein Turn läuft bleiben sie fest.
+- Bestehende Chats können zwischen Profilen verschoben werden (`adopt_session_lineage_from`); Quelle wird archiviert, Ziel öffnet denselben Session-Key.
 
 ## 0.5.0 — 2026-08-25
 

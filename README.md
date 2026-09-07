@@ -6,7 +6,7 @@ BetterLife bündelt Provider-Limits, Composer-Profil/Workspace-Pills, lokale Uhr
 
 - **Limits-Pane:** Restkontingent-Ringe für Nous Research, OpenAI Codex und xAI Grok.
 - **Kontodetails:** Provider, Account, Tarif und nächste Reset-Zeit.
-- **Composer-Kontext:** Profil-Pill und Workspace-Picker über der Chateingabe. Im leeren Chat wählbar, danach fest. Workspace zeigt Dateien und Ordner des Hermes-Hosts.
+- **Composer-Kontext:** Profil- und Workspace-Auswahl über der Chateingabe. Idle-Chats (auch neue Chats in einem Profil) bleiben wählbar; laufende Turns sperren die Pills. Bestehende Chats können zwischen Profilen verschoben werden. Workspace zeigt Dateien und Ordner des Hermes-Hosts.
 - **Uhrzeit:** lokale Zeit im 24-Stunden-Format.
 - **Neustarts:** Client, Messaging-Gateway oder verbundene Hermes-Instanz.
 - **Hover-Namen:** Die drei Restart-Räder erweitern sich zu **Client**, **Gateway** oder **Hermes**.

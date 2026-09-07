@@ -314,5 +314,99 @@ class HostDirListingTests(unittest.TestCase):
         self.assertEqual(result["entries"], [])
 
 
+class SessionMoveTests(unittest.TestCase):
+    def test_same_profile_is_noop(self) -> None:
+        result = API.move_session_to_profile("sess-1", "developer", "developer", running_check=lambda _sid: False)
+        self.assertTrue(result["ok"])
+        self.assertTrue(result["unchanged"])
+
+    def test_refuses_running_session(self) -> None:
+        with self.assertRaises(PermissionError):
+            API.move_session_to_profile(
+                "sess-1",
+                "developer",
+                "personal",
+                running_check=lambda _sid: True,
+            )
+
+    def test_missing_session_id(self) -> None:
+        with self.assertRaises(ValueError):
+            API.move_session_to_profile("", "developer", "personal", running_check=lambda _sid: False)
+
+    def test_adopts_idle_session_and_closes_dbs(self) -> None:
+        class FakeDB:
+            def __init__(self, name, rows):
+                self.name = name
+                self.rows = dict(rows)
+                self.closed = False
+                self.retired = []
+                self.backfilled = None
+
+            def get_session(self, sid):
+                return self.rows.get(sid)
+
+            def export_session_lineage(self, sid):
+                row = self.rows.get(sid)
+                return None if row is None else {**row, "segments": [row], "messages": []}
+
+            def adopt_session_lineage_from(self, donor, sid, retire_donor=True):
+                payload = donor.export_session_lineage(sid)
+                if not payload:
+                    return {"ok": False, "adopted": False, "error": "not found"}
+                self.rows[sid] = dict(payload)
+                if retire_donor:
+                    donor.retired.append(sid)
+                    donor.rows.pop(sid, None)
+                return {"ok": True, "adopted": True, "donor_retired": True, "imported": 1, "skipped": 0}
+
+            def backfill_null_session_profiles(self, name):
+                self.backfilled = name
+                return 1
+
+            def close(self):
+                self.closed = True
+
+        source = FakeDB("developer", {"sess-1": {"id": "sess-1", "title": "Chat"}})
+        dest = FakeDB("personal", {})
+        stores = {"developer": source, "personal": dest}
+
+        result = API.move_session_to_profile(
+            "sess-1",
+            "developer",
+            "personal",
+            running_check=lambda _sid: False,
+            db_opener=stores.__getitem__,
+        )
+
+        self.assertTrue(result["ok"])
+        self.assertTrue(result["adopted"])
+        self.assertTrue(result["donor_retired"])
+        self.assertIn("sess-1", dest.rows)
+        self.assertNotIn("sess-1", source.rows)
+        self.assertEqual(dest.backfilled, "personal")
+        self.assertTrue(source.closed)
+        self.assertTrue(dest.closed)
+
+    def test_missing_session_raises(self) -> None:
+        class EmptyDB:
+            def get_session(self, _sid):
+                return None
+
+            def export_session_lineage(self, _sid):
+                return None
+
+            def close(self):
+                return None
+
+        with self.assertRaises(FileNotFoundError):
+            API.move_session_to_profile(
+                "missing",
+                "developer",
+                "personal",
+                running_check=lambda _sid: False,
+                db_opener=lambda _name: EmptyDB(),
+            )
+
+
 if __name__ == "__main__":
     unittest.main()
