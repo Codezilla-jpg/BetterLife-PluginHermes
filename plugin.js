@@ -1,10 +1,25 @@
-import { STATUSBAR_AREAS, cn, haptic, host, icons, useQuery, useQueryClient } from '@hermes/plugin-sdk'
+import {
+  Button,
+  COMPOSER_AREAS,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  STATUSBAR_AREAS,
+  cn,
+  haptic,
+  host,
+  icons,
+  useQuery,
+  useQueryClient,
+  useValue
+} from '@hermes/plugin-sdk'
 import { useEffect, useState } from 'react'
 import { jsx } from 'react/jsx-runtime'
 
 const ID = 'statusline-workspaces'
 const NAME = 'BetterLife'
-const VERSION = '0.5.0'
+const VERSION = '0.6.0'
 const CLOCK_POLL_MS = 60_000
 const LIMITS_POLL_MS = 5 * 60_000
 const LIMITS_QUERY_KEY = [ID, 'limits']
@@ -17,7 +32,11 @@ const RESTART_TARGETS = [
   { target: 'hermes', label: 'Hermes', order: 140 },
   { target: 'client', label: 'Client', order: 150 }
 ]
-const { RefreshCw } = icons
+const { ChevronDown, RefreshCw } = icons
+const PILL_CLASS = cn(
+  'h-(--composer-control-size) min-w-0 max-w-44 shrink gap-1 rounded-md px-2 text-xs font-normal',
+  'text-(--ui-text-tertiary) hover:bg-(--chrome-action-hover) hover:text-foreground'
+)
 
 const clampPercent = value => {
   if (value === null || value === undefined || value === '') return null
@@ -298,6 +317,204 @@ function ClockChip() {
   return jsx(StatusChip, { ...clockStatusItem(now) })
 }
 
+const isComposerDraft = (sessionId, storedId) => !sessionId && !storedId
+
+const pathBasename = value => {
+  const text = String(value || '').replace(/[\\/]+$/, '')
+  if (!text) return ''
+  const parts = text.split(/[\\/]/)
+  return parts[parts.length - 1] || text
+}
+
+const profileLabel = profile => String(profile?.display_name || profile?.name || '').trim()
+
+const projectPath = project => {
+  const primary = String(project?.primary_path || '').trim()
+  if (primary) return primary
+  const folders = Array.isArray(project?.folders) ? project.folders : []
+  const folder = folders.find(item => item?.is_primary) || folders[0]
+  return String(folder?.path || '').trim()
+}
+
+const projectChoices = payload => {
+  const projects = Array.isArray(payload?.projects) ? payload.projects : []
+  return projects
+    .filter(project => project && !project.archived && projectPath(project))
+    .map(project => ({
+      id: project.id,
+      name: project.name || pathBasename(projectPath(project)),
+      cwd: projectPath(project)
+    }))
+}
+
+const workspaceLabel = (cwd, name) => String(name || pathBasename(cwd) || 'Workspace').trim()
+
+const selectDraftProfile = name => {
+  const profile = String(name || '').trim()
+  if (!profile) return false
+  if (typeof host.newChat !== 'function') {
+    host.notifyError('Update Hermes Desktop für den Profilwechsel.')
+    return false
+  }
+  haptic('tap')
+  host.newChat(profile)
+  return true
+}
+
+const applyWorkspaceCwd = async (cwd, { sessionId, storedId } = {}) => {
+  const path = String(cwd || '').trim()
+  if (!path || typeof host.request !== 'function') return false
+  if (storedId) {
+    await host.request('session.workspace.move', { session_key: storedId, cwd: path })
+    return true
+  }
+  if (sessionId) {
+    await host.request('session.cwd.set', { session_id: sessionId, cwd: path })
+    return true
+  }
+  return false
+}
+
+function ContextPill({ label, title, locked, onOpen, children }) {
+  const trigger = jsx(Button, {
+    type: 'button',
+    variant: 'ghost',
+    disabled: locked,
+    className: PILL_CLASS,
+    title,
+    'aria-label': title,
+    children: [
+      jsx('span', { key: 'label', className: 'truncate', children: label }),
+      locked ? null : jsx(ChevronDown, { key: 'chevron', className: 'size-2.5 shrink-0 opacity-50' })
+    ]
+  })
+  if (locked) return trigger
+  return jsx(DropdownMenu, {
+    onOpenChange: open => {
+      if (open && typeof onOpen === 'function') void onOpen()
+    },
+    children: [
+      jsx(DropdownMenuTrigger, { key: 'trigger', asChild: true, children: trigger }),
+      jsx(DropdownMenuContent, {
+        key: 'content',
+        align: 'start',
+        side: 'top',
+        sideOffset: 8,
+        className: 'min-w-48 p-1',
+        children
+      })
+    ]
+  })
+}
+
+function ContextBar() {
+  const sessionId = useValue(host.state.activeSessionId)
+  const storedId = useValue(host.state.focusedStoredSessionId)
+  const liveProfile = useValue(host.state.focusedSessionProfile) || useValue(host.state.profile) || 'default'
+  const liveCwd = useValue(host.state.cwd) || ''
+  const draft = isComposerDraft(sessionId, storedId)
+  const [profiles, setProfiles] = useState([])
+  const [workspaces, setWorkspaces] = useState([])
+  const [pendingProfile, setPendingProfile] = useState('')
+  const [pendingWorkspace, setPendingWorkspace] = useState(null)
+
+  const profileName = draft && pendingProfile ? pendingProfile : liveProfile
+  const workspace = draft && pendingWorkspace ? pendingWorkspace : { cwd: liveCwd, name: '' }
+  const workspaceName = workspaceLabel(workspace.cwd, workspace.name)
+
+  const loadOptions = async () => {
+    if (typeof host.request !== 'function') return
+    try {
+      const [profilePayload, projectPayload] = await Promise.all([
+        host.request('profiles.list', { include_sessions: false }),
+        host.request('projects.list', {})
+      ])
+      const nextProfiles = Array.isArray(profilePayload?.profiles) ? profilePayload.profiles : []
+      setProfiles(nextProfiles)
+      setWorkspaces(projectChoices(projectPayload))
+    } catch {
+      // fail-open: the live profile/cwd labels still render
+    }
+  }
+
+  useEffect(() => {
+    if (!pendingWorkspace?.cwd) return
+    if (!sessionId && !storedId) return
+    const cwd = pendingWorkspace.cwd
+    void applyWorkspaceCwd(cwd, { sessionId, storedId })
+      .then(applied => {
+        if (applied) setPendingWorkspace(null)
+      })
+      .catch(error => host.notifyError(error, 'Workspace konnte nicht gesetzt werden'))
+  }, [pendingWorkspace, sessionId, storedId])
+
+  const onPickProfile = name => {
+    if (!draft || name === profileName) return
+    setPendingProfile(name)
+    selectDraftProfile(name)
+  }
+
+  const onPickWorkspace = async choice => {
+    if (!draft || !choice?.cwd) return
+    if (choice.cwd === workspace.cwd) return
+    haptic('tap')
+    setPendingWorkspace(choice)
+    try {
+      const applied = await applyWorkspaceCwd(choice.cwd, {
+        sessionId: host.state.activeSessionId.get(),
+        storedId: host.state.focusedStoredSessionId.get()
+      })
+      if (applied) {
+        setPendingWorkspace(null)
+        return
+      }
+      if (choice.id) {
+        await host.request('projects.set_active', { id: choice.id }).catch(() => undefined)
+      }
+    } catch (error) {
+      host.notifyError(error, 'Workspace konnte nicht gesetzt werden')
+    }
+  }
+
+  return jsx('div', {
+    className: 'flex min-w-0 items-center gap-1',
+    'data-betterlife-context': draft ? 'draft' : 'locked',
+    children: [
+      jsx(ContextPill, {
+        key: 'profile',
+        label: profileName,
+        title: draft ? 'Profil wählen' : `Profil: ${profileName}`,
+        locked: !draft,
+        onOpen: loadOptions,
+        children: profiles.map(profile => {
+          const name = profileLabel(profile) || profile.name
+          return jsx(DropdownMenuItem, {
+            key: name,
+            onSelect: () => onPickProfile(profile.name),
+            children: name
+          })
+        })
+      }),
+      jsx(ContextPill, {
+        key: 'workspace',
+        label: workspaceName,
+        title: draft ? 'Workspace wählen' : `Workspace: ${workspace.cwd || workspaceName}`,
+        locked: !draft,
+        onOpen: loadOptions,
+        children: workspaces.map(choice =>
+          jsx(DropdownMenuItem, {
+            key: choice.id || choice.cwd,
+            onSelect: () => {
+              void onPickWorkspace(choice)
+            },
+            children: choice.name
+          })
+        )
+      })
+    ]
+  })
+}
+
 function RestartButton({ target, rest }) {
   const [restarting, setRestarting] = useState(false)
   const [hovered, setHovered] = useState(false)
@@ -366,6 +583,12 @@ const plugin = {
     console.info(`[${ID}] loaded v${VERSION}`)
     ctx.registerMany([
       {
+        id: 'betterlife-composer-context',
+        area: COMPOSER_AREAS.top,
+        order: 10,
+        render: () => jsx(ContextBar, {})
+      },
+      {
         id: 'betterlife-limits-pane',
         area: 'panes',
         order: 55,
@@ -400,5 +623,13 @@ const plugin = {
   }
 }
 
-export { VERSION, clockStatusItem }
+export {
+  VERSION,
+  applyWorkspaceCwd,
+  clockStatusItem,
+  isComposerDraft,
+  projectChoices,
+  selectDraftProfile,
+  workspaceLabel
+}
 export default plugin

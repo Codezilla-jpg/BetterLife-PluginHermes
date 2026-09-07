@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.0 — 2026-09-07
+
+### Added
+
+- Profil- und Workspace-Pills über der Chateingabe, analog zur Modellwahl.
+- Im leeren Chat sind beide Pills wählbar; nach der ersten Session bleiben sie fest auf dem aktuellen Profil und Workspace.
+
 ## 0.5.0 — 2026-08-25
 
 ### Added

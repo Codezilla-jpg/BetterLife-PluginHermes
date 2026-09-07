@@ -13,6 +13,14 @@ let reloadCalls = 0
 let notifyErrorCalls = 0
 const restCalls = []
 const queryCacheUpdates = []
+const newChatCalls = []
+const requestCalls = []
+const liveState = {
+  activeSessionId: null,
+  storedId: null,
+  profile: 'developer',
+  cwd: '/home/hermes/1_Projekte/BetterLife-PluginHermes'
+}
 
 assert.doesNotMatch(source, /SIDEBAR_NAV_AREA|providerStatusItem|contextStatusItem/)
 assert.match(source, /ctx\.rest/)
@@ -24,13 +32,54 @@ const sdk = {
   host: {
     notifyError: () => {
       notifyErrorCalls += 1
+    },
+    newChat: name => {
+      newChatCalls.push(name)
+    },
+    request: async (method, params) => {
+      requestCalls.push({ method, params })
+      if (method === 'profiles.list') {
+        return {
+          profiles: [
+            { name: 'default', display_name: 'Default' },
+            { name: 'developer', display_name: 'Developer' }
+          ]
+        }
+      }
+      if (method === 'projects.list') {
+        return {
+          projects: [
+            {
+              id: 'p_app',
+              name: 'BetterLife',
+              archived: false,
+              primary_path: '/home/hermes/1_Projekte/BetterLife-PluginHermes'
+            },
+            { id: 'p_old', name: 'Archiv', archived: true, primary_path: '/tmp/old' }
+          ]
+        }
+      }
+      return { ok: true }
+    },
+    state: {
+      activeSessionId: { get: () => liveState.activeSessionId },
+      focusedStoredSessionId: { get: () => liveState.storedId },
+      focusedSessionProfile: { get: () => liveState.profile },
+      profile: { get: () => liveState.profile },
+      cwd: { get: () => liveState.cwd }
     }
   },
   haptic: kind => {
     assert.equal(kind, 'tap')
     hapticCalls += 1
   },
-  icons: { RefreshCw: 'refresh-icon' },
+  icons: { ChevronDown: 'chevron-icon', RefreshCw: 'refresh-icon' },
+  Button: props => ({ type: 'button', props }),
+  COMPOSER_AREAS: { top: 'composer.top' },
+  DropdownMenu: props => ({ type: 'dropdown-menu', props }),
+  DropdownMenuContent: props => ({ type: 'dropdown-content', props }),
+  DropdownMenuItem: props => ({ type: 'dropdown-item', props }),
+  DropdownMenuTrigger: props => ({ type: 'dropdown-trigger', props }),
   STATUSBAR_AREAS: { left: 'statusBar.left', right: 'statusBar.right' },
   useQuery: () => ({
     data: {
@@ -122,9 +171,18 @@ await mod.link(specifier => {
 })
 await mod.evaluate()
 
-const { VERSION, default: plugin, clockStatusItem } = mod.namespace
+const {
+  VERSION,
+  default: plugin,
+  clockStatusItem,
+  isComposerDraft,
+  projectChoices,
+  selectDraftProfile,
+  applyWorkspaceCwd,
+  workspaceLabel
+} = mod.namespace
 
-assert.equal(VERSION, '0.5.0')
+assert.equal(VERSION, '0.6.0')
 assert.equal(plugin.id, 'statusline-workspaces')
 assert.equal(plugin.name, 'BetterLife')
 assert.equal(plugin.version, VERSION)
@@ -148,6 +206,7 @@ plugin.register(ctx)
 assert.deepEqual(
   registrations.map(item => item.id),
   [
+    'betterlife-composer-context',
     'betterlife-limits-pane',
     'betterlife-local-clock',
     'betterlife-restart-gateway',
@@ -275,4 +334,60 @@ assert.equal(reloadCalls, 2)
 assert.equal(hapticCalls, 4)
 assert.equal(notifyErrorCalls, 0)
 
-console.log('smoke: PASS — merged Limits pane, local clock and restart actions verified')
+assert.equal(isComposerDraft(null, null), true)
+assert.equal(isComposerDraft('s1', null), false)
+assert.equal(isComposerDraft(null, 'stored'), false)
+assert.equal(workspaceLabel('/home/hermes/1_Projekte/BetterLife-PluginHermes'), 'BetterLife-PluginHermes')
+const choices = projectChoices({
+  projects: [
+    { id: 'p_app', name: 'BetterLife', archived: false, primary_path: '/tmp/app' },
+    { id: 'p_old', name: 'Archiv', archived: true, primary_path: '/tmp/old' },
+    { id: 'p_empty', name: 'Leer', archived: false, primary_path: '' }
+  ]
+})
+assert.equal(choices.length, 1)
+assert.equal(choices[0].id, 'p_app')
+assert.equal(choices[0].name, 'BetterLife')
+assert.equal(choices[0].cwd, '/tmp/app')
+assert.equal(selectDraftProfile('personal'), true)
+assert.equal(newChatCalls.length, 1)
+assert.equal(newChatCalls[0], 'personal')
+assert.equal(await applyWorkspaceCwd('/tmp/app', { storedId: 'sess-1' }), true)
+assert.equal(requestCalls.at(-1).method, 'session.workspace.move')
+assert.equal(requestCalls.at(-1).params.session_key, 'sess-1')
+assert.equal(requestCalls.at(-1).params.cwd, '/tmp/app')
+assert.equal(await applyWorkspaceCwd('/tmp/run', { sessionId: 'rt-1' }), true)
+assert.equal(requestCalls.at(-1).method, 'session.cwd.set')
+assert.equal(requestCalls.at(-1).params.session_id, 'rt-1')
+assert.equal(requestCalls.at(-1).params.cwd, '/tmp/run')
+
+const contextContrib = registrations.find(item => item.id === 'betterlife-composer-context')
+assert.equal(contextContrib.area, 'composer.top')
+assert.equal(contextContrib.order, 10)
+const draftBar = contextContrib.render()
+const draftTree = draftBar.type(draftBar.props)
+assert.equal(draftTree.props['data-betterlife-context'], 'draft')
+assert.equal(draftTree.props.children.length, 2)
+const draftPillEl = draftTree.props.children[0].type(draftTree.props.children[0].props)
+const draftProfilePill = draftPillEl.type(draftPillEl.props)
+assert.equal(draftProfilePill.type, 'dropdown-menu')
+assert.equal(typeof draftProfilePill.props.onOpenChange, 'function')
+await draftProfilePill.props.onOpenChange(true)
+assert.equal(requestCalls.some(call => call.method === 'profiles.list'), true)
+const draftProfileTrigger = draftProfilePill.props.children[0]
+assert.equal(draftProfileTrigger.props.asChild, true)
+const draftProfileButton = draftProfileTrigger.props.children
+assert.equal(draftProfileButton.props.disabled, false)
+assert.equal(draftProfileButton.props.children[0].props.children, 'developer')
+assert.equal(draftProfileButton.props.children[1].type, 'chevron-icon')
+
+liveState.activeSessionId = 'live-1'
+liveState.storedId = 'stored-1'
+const lockedBar = contextContrib.render()
+const lockedTree = lockedBar.type(lockedBar.props)
+assert.equal(lockedTree.props['data-betterlife-context'], 'locked')
+const lockedProfile = lockedTree.props.children[0].type(lockedTree.props.children[0].props)
+assert.equal(lockedProfile.props.disabled, true)
+assert.equal(lockedProfile.props.children[1], null)
+
+console.log('smoke: PASS — merged Limits pane, composer context pills, local clock and restart actions verified')

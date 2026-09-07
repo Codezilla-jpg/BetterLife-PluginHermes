@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "statusline-workspaces",
   "name": "BetterLife",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "entrypoint": "plugin.js",
   "backend": "backend/dashboard/plugin_api.py",
   "compatibility": {
@@ -11,12 +11,17 @@
     "status": "ready",
     "requires": [
       "STATUSBAR_AREAS",
+      "COMPOSER_AREAS.top",
       "panes area",
       "PluginContext.rest",
       "cn",
       "icons.RefreshCw",
+      "icons.ChevronDown",
       "useQuery",
       "useQueryClient",
+      "useValue",
+      "host.newChat",
+      "host.request",
       "window.location.reload",
       "PluginContext.rest restart routes"
     ]
