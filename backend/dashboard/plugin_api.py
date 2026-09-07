@@ -440,6 +440,94 @@ def _schedule_hermes_restart(pid: Optional[int] = None) -> int:
     return target_pid
 
 
+_FS_SKIP_NAMES = {
+    ".git",
+    ".hg",
+    ".svn",
+    ".cache",
+    ".next",
+    ".turbo",
+    ".venv",
+    "__pycache__",
+    "build",
+    "dist",
+    "node_modules",
+    "target",
+    "venv",
+}
+_FS_SKIP_FILES = {
+    "auth.json",
+    "auth.lock",
+    "credentials",
+    "config.yaml",
+    ".env",
+    ".envrc",
+}
+_DEFAULT_WORKSPACE_ROOTS = (
+    Path("/home/hermes/1_Projekte"),
+    Path.home(),
+    Path("/"),
+)
+
+
+def default_workspace_root() -> Path:
+    for candidate in _DEFAULT_WORKSPACE_ROOTS:
+        try:
+            if candidate.is_dir():
+                return candidate.resolve()
+        except OSError:
+            continue
+    return Path("/")
+
+
+def list_host_dir(path: str = "") -> dict[str, Any]:
+    raw = str(path or "").strip() or str(default_workspace_root())
+    try:
+        target = Path(raw).expanduser().resolve()
+    except (OSError, RuntimeError):
+        return {"path": raw, "entries": [], "error": "EINVAL"}
+    try:
+        if not target.exists():
+            return {"path": str(target), "entries": [], "error": "ENOENT"}
+        if not target.is_dir():
+            return {"path": str(target), "entries": [], "error": "ENOTDIR"}
+    except OSError as exc:
+        return {"path": str(target), "entries": [], "error": getattr(exc, "strerror", None) or "read-error"}
+
+    entries: list[dict[str, Any]] = []
+    try:
+        with os.scandir(target) as scan:
+            for entry in scan:
+                name = entry.name
+                lowered = name.lower()
+                if name.startswith(".") or name in _FS_SKIP_NAMES or lowered in _FS_SKIP_FILES:
+                    continue
+                if lowered.startswith(".env."):
+                    continue
+                try:
+                    is_directory = entry.is_dir(follow_symlinks=False)
+                except OSError:
+                    continue
+                entries.append(
+                    {
+                        "name": name,
+                        "path": str(target / name),
+                        "isDirectory": is_directory,
+                    }
+                )
+    except OSError as exc:
+        return {"path": str(target), "entries": [], "error": getattr(exc, "strerror", None) or "read-error"}
+
+    entries.sort(key=lambda item: (not item["isDirectory"], item["name"].lower(), item["name"]))
+    parent = str(target.parent) if target.parent != target else None
+    return {"path": str(target), "parent": parent, "entries": entries}
+
+
+@router.get("/fs/list")
+async def fs_list(path: str = "") -> dict[str, Any]:
+    return await asyncio.to_thread(list_host_dir, path)
+
+
 @router.get("/usage")
 async def provider_usage(force: bool = False) -> dict[str, Any]:
     return await asyncio.to_thread(provider_usage_snapshot, force)

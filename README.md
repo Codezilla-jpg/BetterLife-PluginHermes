@@ -6,7 +6,7 @@ BetterLife bündelt Provider-Limits, Composer-Profil/Workspace-Pills, lokale Uhr
 
 - **Limits-Pane:** Restkontingent-Ringe für Nous Research, OpenAI Codex und xAI Grok.
 - **Kontodetails:** Provider, Account, Tarif und nächste Reset-Zeit.
-- **Composer-Kontext:** Profil- und Workspace-Pills über der Chateingabe, analog zur Modellwahl. Im leeren Chat wählbar, danach fest auf dem aktuellen Ort.
+- **Composer-Kontext:** Profil-Pill und Workspace-Picker über der Chateingabe. Im leeren Chat wählbar, danach fest. Workspace zeigt Dateien und Ordner des Hermes-Hosts.
 - **Uhrzeit:** lokale Zeit im 24-Stunden-Format.
 - **Neustarts:** Client, Messaging-Gateway oder verbundene Hermes-Instanz.
 - **Hover-Namen:** Die drei Restart-Räder erweitern sich zu **Client**, **Gateway** oder **Hermes**.
@@ -16,8 +16,8 @@ Das eigenständige `provider-limits`-Plugin wird nach der Installation nicht meh
 
 ## Architektur
 
-- `plugin.js` registriert die Limits-Pane, Composer-Profil/Workspace-Pills sowie Uhr und Restart-Aktionen in der Statusleiste.
-- `backend/dashboard/plugin_api.py` liest die Provider-Kontingente serverseitig und führt feste Neustart-Aktionen aus.
+- `plugin.js` registriert die Limits-Pane, Composer-Profil-Pill und Host-Workspace-Picker sowie Uhr und Restart-Aktionen in der Statusleiste.
+- `backend/dashboard/plugin_api.py` liest die Provider-Kontingente serverseitig, listet Host-Ordner für den Workspace-Picker und führt feste Neustart-Aktionen aus.
 
 ## Datenquellen
 

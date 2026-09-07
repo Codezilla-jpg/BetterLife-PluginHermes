@@ -73,9 +73,14 @@ const sdk = {
     assert.equal(kind, 'tap')
     hapticCalls += 1
   },
-  icons: { ChevronDown: 'chevron-icon', RefreshCw: 'refresh-icon' },
+  icons: { ChevronDown: 'chevron-icon', FileText: 'file-icon', FolderOpen: 'folder-icon', RefreshCw: 'refresh-icon' },
   Button: props => ({ type: 'button', props }),
   COMPOSER_AREAS: { top: 'composer.top' },
+  Dialog: props => ({ type: 'dialog', props }),
+  DialogContent: props => ({ type: 'dialog-content', props }),
+  DialogDescription: props => ({ type: 'dialog-description', props }),
+  DialogFooter: props => ({ type: 'dialog-footer', props }),
+  DialogTitle: props => ({ type: 'dialog-title', props }),
   DropdownMenu: props => ({ type: 'dropdown-menu', props }),
   DropdownMenuContent: props => ({ type: 'dropdown-content', props }),
   DropdownMenuItem: props => ({ type: 'dropdown-item', props }),
@@ -175,7 +180,10 @@ const {
   VERSION,
   default: plugin,
   clockStatusItem,
+  defaultPickerPath,
   isComposerDraft,
+  parentDir,
+  pathCrumbs,
   projectChoices,
   selectDraftProfile,
   applyWorkspaceCwd,
@@ -195,6 +203,16 @@ const ctx = {
   rest: async (path, options) => {
     restCalls.push({ path, options })
     if (path === '/refresh') return { providers: [], fetched_at: '2026-08-25T12:01:00Z' }
+    if (String(path).startsWith('/fs/list')) {
+      return {
+        path: '/home/hermes/1_Projekte',
+        parent: '/home/hermes',
+        entries: [
+          { name: 'BetterLife-PluginHermes', path: '/home/hermes/1_Projekte/BetterLife-PluginHermes', isDirectory: true },
+          { name: 'README.md', path: '/home/hermes/1_Projekte/README.md', isDirectory: false }
+        ]
+      }
+    }
     return { ok: true }
   },
   registerMany(contributions) {
@@ -338,6 +356,10 @@ assert.equal(isComposerDraft(null, null), true)
 assert.equal(isComposerDraft('s1', null), false)
 assert.equal(isComposerDraft(null, 'stored'), false)
 assert.equal(workspaceLabel('/home/hermes/1_Projekte/BetterLife-PluginHermes'), 'BetterLife-PluginHermes')
+assert.equal(parentDir('/home/hermes/1_Projekte'), '/home/hermes')
+assert.equal(parentDir('/'), '/')
+assert.equal(pathCrumbs('/home/hermes/1_Projekte').at(-1).path, '/home/hermes/1_Projekte')
+assert.equal(defaultPickerPath(''), '/home/hermes/1_Projekte')
 const choices = projectChoices({
   projects: [
     { id: 'p_app', name: 'BetterLife', archived: false, primary_path: '/tmp/app' },
@@ -367,7 +389,7 @@ assert.equal(contextContrib.order, 10)
 const draftBar = contextContrib.render()
 const draftTree = draftBar.type(draftBar.props)
 assert.equal(draftTree.props['data-betterlife-context'], 'draft')
-assert.equal(draftTree.props.children.length, 2)
+assert.equal(draftTree.props.children.length, 3)
 const draftPillEl = draftTree.props.children[0].type(draftTree.props.children[0].props)
 const draftProfilePill = draftPillEl.type(draftPillEl.props)
 assert.equal(draftProfilePill.type, 'dropdown-menu')
@@ -380,6 +402,13 @@ const draftProfileButton = draftProfileTrigger.props.children
 assert.equal(draftProfileButton.props.disabled, false)
 assert.equal(draftProfileButton.props.children[0].props.children, 'developer')
 assert.equal(draftProfileButton.props.children[1].type, 'chevron-icon')
+const draftWorkspace = draftTree.props.children[1]
+assert.equal(draftWorkspace.props.disabled, false)
+assert.equal(draftWorkspace.props.children[0].props.children, 'BetterLife-PluginHermes')
+assert.equal(typeof draftWorkspace.props.onClick, 'function')
+const draftPicker = draftTree.props.children[2]
+assert.equal(draftPicker.props.open, false)
+assert.match(String(draftPicker.props.initialPath), /1_Projekte/)
 
 liveState.activeSessionId = 'live-1'
 liveState.storedId = 'stored-1'
@@ -389,5 +418,6 @@ assert.equal(lockedTree.props['data-betterlife-context'], 'locked')
 const lockedProfile = lockedTree.props.children[0].type(lockedTree.props.children[0].props)
 assert.equal(lockedProfile.props.disabled, true)
 assert.equal(lockedProfile.props.children[1], null)
+assert.equal(lockedTree.props.children[1].props.disabled, true)
 
 console.log('smoke: PASS — merged Limits pane, composer context pills, local clock and restart actions verified')

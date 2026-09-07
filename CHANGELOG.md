@@ -5,6 +5,7 @@
 ### Added
 
 - Profil- und Workspace-Pills über der Chateingabe, analog zur Modellwahl.
+- Workspace-Auswahl öffnet einen Ordnerbrowser auf dem Hermes-Host; Dateien sind sichtbar, gewählt wird ein Ordner.
 - Im leeren Chat sind beide Pills wählbar; nach der ersten Session bleiben sie fest auf dem aktuellen Profil und Workspace.
 
 ## 0.5.0 — 2026-08-25

@@ -286,5 +286,33 @@ class RestartTests(unittest.TestCase):
                 victim.wait()
 
 
+class HostDirListingTests(unittest.TestCase):
+    def test_lists_host_files_and_directories(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            (root / "app").mkdir()
+            (root / "README.md").write_text("hi", encoding="utf-8")
+            (root / ".env").write_text("secret", encoding="utf-8")
+            (root / "node_modules").mkdir()
+
+            result = API.list_host_dir(str(root))
+
+            names = [entry["name"] for entry in result["entries"]]
+            self.assertEqual(result["path"], str(root.resolve()))
+            self.assertIn("app", names)
+            self.assertIn("README.md", names)
+            self.assertNotIn(".env", names)
+            self.assertNotIn("node_modules", names)
+            self.assertTrue(next(entry for entry in result["entries"] if entry["name"] == "app")["isDirectory"])
+            self.assertFalse(next(entry for entry in result["entries"] if entry["name"] == "README.md")["isDirectory"])
+
+    def test_missing_path_is_error(self) -> None:
+        result = API.list_host_dir("/tmp/betterlife-missing-dir-xyz")
+        self.assertEqual(result["error"], "ENOENT")
+        self.assertEqual(result["entries"], [])
+
+
 if __name__ == "__main__":
     unittest.main()

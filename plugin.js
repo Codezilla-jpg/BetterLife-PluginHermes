@@ -1,6 +1,11 @@
 import {
   Button,
   COMPOSER_AREAS,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogTitle,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -32,7 +37,7 @@ const RESTART_TARGETS = [
   { target: 'hermes', label: 'Hermes', order: 140 },
   { target: 'client', label: 'Client', order: 150 }
 ]
-const { ChevronDown, RefreshCw } = icons
+const { ChevronDown, FileText, FolderOpen, RefreshCw } = icons
 const PILL_CLASS = cn(
   'h-(--composer-control-size) min-w-0 max-w-44 shrink gap-1 rounded-md px-2 text-xs font-normal',
   'text-(--ui-text-tertiary) hover:bg-(--chrome-action-hover) hover:text-foreground'
@@ -349,6 +354,26 @@ const projectChoices = payload => {
 
 const workspaceLabel = (cwd, name) => String(name || pathBasename(cwd) || 'Workspace').trim()
 
+const parentDir = path => {
+  const value = String(path || '').replace(/[\\/]+$/, '') || '/'
+  if (value === '/') return '/'
+  const index = Math.max(value.lastIndexOf('/'), value.lastIndexOf('\\'))
+  return index <= 0 ? '/' : value.slice(0, index)
+}
+
+const pathCrumbs = path => {
+  const parts = String(path || '').split(/[\\/]/).filter(Boolean)
+  const crumbs = [{ label: '/', path: '/' }]
+  let acc = ''
+  for (const part of parts) {
+    acc += `/${part}`
+    crumbs.push({ label: part, path: acc })
+  }
+  return crumbs
+}
+
+const defaultPickerPath = cwd => String(cwd || '').trim() || '/home/hermes/1_Projekte'
+
 const selectDraftProfile = name => {
   const profile = String(name || '').trim()
   if (!profile) return false
@@ -407,16 +432,199 @@ function ContextPill({ label, title, locked, onOpen, children }) {
   })
 }
 
-function ContextBar() {
+function FolderRow({ name, disabled, muted, icon, onClick }) {
+  return jsx('button', {
+    type: 'button',
+    disabled,
+    onClick,
+    className: cn(
+      'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs',
+      muted
+        ? 'text-(--ui-text-quaternary)'
+        : 'text-(--ui-text-secondary) hover:bg-(--chrome-action-hover) hover:text-foreground',
+      disabled && 'pointer-events-none opacity-40'
+    ),
+    children: [
+      jsx(icon, { key: 'icon', className: 'size-3.5 shrink-0 opacity-70' }),
+      jsx('span', { key: 'name', className: 'min-w-0 truncate', children: name })
+    ]
+  })
+}
+
+function WorkspacePicker({ open, initialPath, rest, onOpenChange, onSelect }) {
+  const [currentPath, setCurrentPath] = useState(initialPath)
+  const [entries, setEntries] = useState([])
+  const [error, setError] = useState(null)
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (open) setCurrentPath(initialPath || defaultPickerPath())
+  }, [open, initialPath])
+
+  useEffect(() => {
+    if (!open || typeof rest !== 'function') return undefined
+    let alive = true
+    setLoading(true)
+    setError(null)
+    void rest(`/fs/list?path=${encodeURIComponent(currentPath || '')}`, { timeoutMs: 15_000 })
+      .then(result => {
+        if (!alive) return
+        if (result?.error) {
+          setError(result.error)
+          setEntries([])
+          if (result.path && result.path !== currentPath) setCurrentPath(result.path)
+          return
+        }
+        if (result?.path && result.path !== currentPath) setCurrentPath(result.path)
+        setEntries(Array.isArray(result?.entries) ? result.entries : [])
+      })
+      .catch(err => {
+        if (!alive) return
+        setError(err instanceof Error ? err.message : String(err))
+        setEntries([])
+      })
+      .finally(() => {
+        if (alive) setLoading(false)
+      })
+    return () => {
+      alive = false
+    }
+  }, [open, currentPath, rest])
+
+  const crumbs = pathCrumbs(currentPath)
+  const close = () => onOpenChange(false)
+
+  return jsx(Dialog, {
+    open,
+    onOpenChange: next => {
+      if (!next) close()
+    },
+    children: jsx(DialogContent, {
+      className: 'h-[min(36rem,calc(100vh-4rem))] max-w-lg',
+      bodyClassName: 'flex min-h-0 flex-col gap-0 overflow-hidden p-0',
+      children: [
+        jsx('div', {
+          key: 'header',
+          className: 'shrink-0 border-b border-(--ui-stroke-secondary) px-4 py-3',
+          children: [
+            jsx(DialogTitle, { key: 'title', className: 'text-sm', children: 'Workspace auf Hermes-Host' }),
+            jsx(DialogDescription, {
+              key: 'desc',
+              className: 'mt-1 text-xs',
+              children: 'Ordner wählen. Dateien sind nur zur Orientierung sichtbar.'
+            })
+          ]
+        }),
+        jsx('div', {
+          key: 'crumbs',
+          className: 'flex shrink-0 flex-wrap items-center gap-1 border-b border-(--ui-stroke-secondary) px-3 py-2 text-xs text-(--ui-text-tertiary)',
+          children: crumbs.map((crumb, index) =>
+            jsx('button', {
+              key: crumb.path,
+              type: 'button',
+              className: cn(
+                'rounded px-1.5 py-0.5 hover:bg-(--chrome-action-hover) hover:text-foreground',
+                index === crumbs.length - 1 && 'text-foreground'
+              ),
+              onClick: () => setCurrentPath(crumb.path),
+              children: crumb.label
+            })
+          )
+        }),
+        jsx('div', {
+          key: 'list',
+          className: 'min-h-0 flex-1 overflow-y-auto p-2',
+          children: [
+            jsx(FolderRow, {
+              key: 'up',
+              name: '..',
+              icon: FolderOpen,
+              disabled: currentPath === '/',
+              onClick: () => setCurrentPath(parentDir(currentPath))
+            }),
+            loading
+              ? jsx('div', {
+                  key: 'loading',
+                  className: 'px-2 py-3 text-xs text-(--ui-text-tertiary)',
+                  children: 'Lade Host-Dateien…'
+                })
+              : error
+                ? jsx('div', {
+                    key: 'error',
+                    className: 'px-2 py-3 text-xs text-destructive',
+                    children: error
+                  })
+                : entries.length === 0
+                  ? jsx('div', {
+                      key: 'empty',
+                      className: 'px-2 py-3 text-xs text-(--ui-text-tertiary)',
+                      children: 'Leerer Ordner'
+                    })
+                  : entries.map(entry =>
+                      jsx(FolderRow, {
+                        key: entry.path,
+                        name: entry.name,
+                        icon: entry.isDirectory ? FolderOpen : FileText,
+                        muted: !entry.isDirectory,
+                        disabled: !entry.isDirectory,
+                        onClick: entry.isDirectory ? () => setCurrentPath(entry.path) : undefined
+                      })
+                    )
+          ]
+        }),
+        jsx(DialogFooter, {
+          key: 'footer',
+          className: 'shrink-0 justify-between gap-2 border-t border-(--ui-stroke-secondary) px-4 py-3',
+          children: [
+            jsx('div', {
+              key: 'path',
+              className: 'min-w-0 truncate text-xs text-(--ui-text-tertiary)',
+              title: currentPath,
+              children: currentPath
+            }),
+            jsx('div', {
+              key: 'actions',
+              className: 'flex shrink-0 items-center gap-2',
+              children: [
+                jsx(Button, {
+                  key: 'cancel',
+                  type: 'button',
+                  size: 'sm',
+                  variant: 'ghost',
+                  onClick: close,
+                  children: 'Abbrechen'
+                }),
+                jsx(Button, {
+                  key: 'select',
+                  type: 'button',
+                  size: 'sm',
+                  onClick: () => {
+                    if (!currentPath) return
+                    haptic('tap')
+                    onSelect(currentPath)
+                    close()
+                  },
+                  children: 'Diesen Ordner wählen'
+                })
+              ]
+            })
+          ]
+        })
+      ]
+    })
+  })
+}
+
+function ContextBar({ rest }) {
   const sessionId = useValue(host.state.activeSessionId)
   const storedId = useValue(host.state.focusedStoredSessionId)
   const liveProfile = useValue(host.state.focusedSessionProfile) || useValue(host.state.profile) || 'default'
   const liveCwd = useValue(host.state.cwd) || ''
   const draft = isComposerDraft(sessionId, storedId)
   const [profiles, setProfiles] = useState([])
-  const [workspaces, setWorkspaces] = useState([])
   const [pendingProfile, setPendingProfile] = useState('')
   const [pendingWorkspace, setPendingWorkspace] = useState(null)
+  const [pickerOpen, setPickerOpen] = useState(false)
 
   const profileName = draft && pendingProfile ? pendingProfile : liveProfile
   const workspace = draft && pendingWorkspace ? pendingWorkspace : { cwd: liveCwd, name: '' }
@@ -425,15 +633,10 @@ function ContextBar() {
   const loadOptions = async () => {
     if (typeof host.request !== 'function') return
     try {
-      const [profilePayload, projectPayload] = await Promise.all([
-        host.request('profiles.list', { include_sessions: false }),
-        host.request('projects.list', {})
-      ])
-      const nextProfiles = Array.isArray(profilePayload?.profiles) ? profilePayload.profiles : []
-      setProfiles(nextProfiles)
-      setWorkspaces(projectChoices(projectPayload))
+      const profilePayload = await host.request('profiles.list', { include_sessions: false })
+      setProfiles(Array.isArray(profilePayload?.profiles) ? profilePayload.profiles : [])
     } catch {
-      // fail-open: the live profile/cwd labels still render
+      // fail-open: the live profile label still renders
     }
   }
 
@@ -495,21 +698,33 @@ function ContextBar() {
           })
         })
       }),
-      jsx(ContextPill, {
+      jsx(Button, {
         key: 'workspace',
-        label: workspaceName,
-        title: draft ? 'Workspace wählen' : `Workspace: ${workspace.cwd || workspaceName}`,
-        locked: !draft,
-        onOpen: loadOptions,
-        children: workspaces.map(choice =>
-          jsx(DropdownMenuItem, {
-            key: choice.id || choice.cwd,
-            onSelect: () => {
-              void onPickWorkspace(choice)
-            },
-            children: choice.name
-          })
-        )
+        type: 'button',
+        variant: 'ghost',
+        disabled: !draft,
+        className: PILL_CLASS,
+        title: draft ? 'Workspace auf Hermes-Host wählen' : `Workspace: ${workspace.cwd || workspaceName}`,
+        'aria-label': draft ? 'Workspace auf Hermes-Host wählen' : `Workspace: ${workspaceName}`,
+        onClick: () => {
+          if (!draft) return
+          haptic('tap')
+          setPickerOpen(true)
+        },
+        children: [
+          jsx('span', { key: 'label', className: 'truncate', children: workspaceName }),
+          draft ? jsx(ChevronDown, { key: 'chevron', className: 'size-2.5 shrink-0 opacity-50' }) : null
+        ]
+      }),
+      jsx(WorkspacePicker, {
+        key: 'picker',
+        open: pickerOpen,
+        initialPath: defaultPickerPath(workspace.cwd),
+        rest,
+        onOpenChange: setPickerOpen,
+        onSelect: cwd => {
+          void onPickWorkspace({ cwd, name: pathBasename(cwd) })
+        }
       })
     ]
   })
@@ -586,7 +801,7 @@ const plugin = {
         id: 'betterlife-composer-context',
         area: COMPOSER_AREAS.top,
         order: 10,
-        render: () => jsx(ContextBar, {})
+        render: () => jsx(ContextBar, { rest: ctx.rest })
       },
       {
         id: 'betterlife-limits-pane',
@@ -627,7 +842,10 @@ export {
   VERSION,
   applyWorkspaceCwd,
   clockStatusItem,
+  defaultPickerPath,
   isComposerDraft,
+  parentDir,
+  pathCrumbs,
   projectChoices,
   selectDraftProfile,
   workspaceLabel
