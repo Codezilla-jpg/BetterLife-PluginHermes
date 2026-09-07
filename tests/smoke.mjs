@@ -38,6 +38,7 @@ const sdk = {
       notifyErrorCalls += 1
     },
     notify: () => {},
+    onEvent: () => () => {},
     openSession: async (id, options) => {
       openSessionCalls.push({ id, options })
     },
@@ -210,6 +211,9 @@ const {
   projectChoices,
   selectDraftProfile,
   applyWorkspaceCwd,
+  chatKey,
+  createChatContextStore,
+  rememberFromSessionInfo,
   workspaceLabel
 } = mod.namespace
 
@@ -385,6 +389,18 @@ assert.equal(reloadCalls, 2)
 assert.equal(hapticCalls, 4)
 assert.equal(notifyErrorCalls, 0)
 
+assert.equal(chatKey('stored', 'live'), 'stored')
+assert.equal(chatKey(null, 'live'), 'live')
+assert.equal(chatKey(null, null), 'draft')
+const store = createChatContextStore()
+store.set('a', { cwd: '/tmp/a' })
+store.set('b', { cwd: '/tmp/b' })
+assert.equal(store.get('a').cwd, '/tmp/a')
+assert.equal(store.get('b').cwd, '/tmp/b')
+rememberFromSessionInfo({
+  session_id: 'rt-9',
+  payload: { cwd: '/home/hermes/pmm', stored_session_id: 'stored-9', profile_name: 'personal' }
+})
 assert.equal(isComposerDraft(null, null), true)
 assert.equal(isComposerDraft('s1', null), false)
 assert.equal(isComposerDraft(null, 'stored'), false)

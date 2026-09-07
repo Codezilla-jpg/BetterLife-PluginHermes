@@ -330,6 +330,83 @@ const isSessionRunning = (sessionId, busy, busyBySession) => {
   return false
 }
 
+const chatKey = (storedId, sessionId) => String(storedId || sessionId || 'draft')
+
+const createChatContextStore = () => {
+  const byKey = Object.create(null)
+  const pending = Object.create(null)
+  const subs = new Set()
+  const notify = () => {
+    subs.forEach(fn => fn())
+  }
+  return {
+    key: chatKey,
+    get: key => byKey[key] || null,
+    pending: key => pending[key] || null,
+    set: (key, patch) => {
+      if (!key) return
+      byKey[key] = { ...byKey[key], ...patch }
+      notify()
+    },
+    setPending: (key, value) => {
+      if (!key) return
+      if (value) pending[key] = value
+      else delete pending[key]
+      notify()
+    },
+    subscribe: fn => {
+      subs.add(fn)
+      return () => subs.delete(fn)
+    }
+  }
+}
+
+const chatStore = createChatContextStore()
+
+const rememberFromSessionInfo = event => {
+  const payload = event?.payload && typeof event.payload === 'object' ? event.payload : event || {}
+  const sessionId = event?.session_id || payload.session_id || payload.id
+  const storedId = payload.stored_session_id
+  const cwd = typeof payload.cwd === 'string' ? payload.cwd : ''
+  const profile = payload.profile_name || payload.profile
+  if (!cwd && !profile) return
+  const patch = {}
+  if (cwd) patch.cwd = cwd
+  if (profile) patch.profile = profile
+  const keys = [chatKey(storedId, sessionId)]
+  if (storedId) keys.push(chatKey(storedId, null))
+  if (sessionId) keys.push(chatKey(null, sessionId))
+  keys.forEach(key => chatStore.set(key, patch))
+}
+
+let sessionInfoMounts = 0
+let disposeSessionInfo = null
+
+const bindSessionInfo = () => {
+  sessionInfoMounts += 1
+  if (sessionInfoMounts === 1 && typeof host.onEvent === 'function') {
+    disposeSessionInfo = host.onEvent('session.info', rememberFromSessionInfo)
+  }
+  return () => {
+    sessionInfoMounts = Math.max(0, sessionInfoMounts - 1)
+    if (sessionInfoMounts === 0 && typeof disposeSessionInfo === 'function') {
+      disposeSessionInfo()
+      disposeSessionInfo = null
+    }
+  }
+}
+
+let workspaceApplyChain = Promise.resolve()
+const queueWorkspaceApply = (cwd, ids) => {
+  const run = () => applyWorkspaceCwd(cwd, ids)
+  const job = workspaceApplyChain.then(run, run)
+  workspaceApplyChain = job.then(
+    () => undefined,
+    () => undefined
+  )
+  return job
+}
+
 const pathBasename = value => {
   const text = String(value || '').replace(/[\\/]+$/, '')
   if (!text) return ''
@@ -396,18 +473,20 @@ const coreFsList = async path => {
 }
 
 const listHostDir = async (path, rest) => {
-  if (typeof rest === 'function') {
+  try {
+    return await coreFsList(path)
+  } catch (coreError) {
+    if (typeof rest !== 'function') throw coreError
     try {
-      const result = await rest(`/fs/list?path=${encodeURIComponent(path || '')}`, { timeoutMs: 15_000 })
+      const result = await rest(`/fs/list?path=${encodeURIComponent(path || '')}`, { timeoutMs: 8_000 })
       const detail = String(result?.detail || '')
-      if (detail.includes('No such API endpoint')) return coreFsList(path)
+      if (detail.includes('No such API endpoint')) throw coreError
       return result
     } catch (error) {
-      if (isMissingPluginRoute(error)) return coreFsList(path)
+      if (isMissingPluginRoute(error)) throw coreError
       throw error
     }
   }
-  return coreFsList(path)
 }
 
 const selectDraftProfile = name => {
@@ -525,7 +604,7 @@ function WorkspacePicker({ open, initialPath, rest, onOpenChange, onSelect }) {
 
   useEffect(() => {
     if (open) setCurrentPath(initialPath || defaultPickerPath())
-  }, [open, initialPath])
+  }, [open])
 
   useEffect(() => {
     if (!open) return undefined
@@ -691,14 +770,27 @@ function ContextBar({ rest }) {
   const draft = isComposerDraft(sessionId, storedId)
   const running = isSessionRunning(sessionId, busy, busyBySession)
   const editable = !running
+  const key = chatKey(storedId, sessionId)
+  const [, setTick] = useState(0)
   const [profiles, setProfiles] = useState([])
-  const [pendingProfile, setPendingProfile] = useState('')
-  const [pendingWorkspace, setPendingWorkspace] = useState(null)
   const [pickerOpen, setPickerOpen] = useState(false)
 
-  const profileName = draft && pendingProfile ? pendingProfile : liveProfile
-  const workspace = pendingWorkspace && editable ? pendingWorkspace : { cwd: liveCwd, name: '' }
-  const workspaceName = workspaceLabel(workspace.cwd, workspace.name)
+  useEffect(() => chatStore.subscribe(() => setTick(value => value + 1)), [])
+  useEffect(() => bindSessionInfo(), [])
+
+  const remembered = chatStore.get(key) || {}
+  const pending = chatStore.pending(key)
+  const profileName = pending?.profile || remembered.profile || liveProfile
+  const cwd = pending?.cwd || remembered.cwd || (draft ? liveCwd : '')
+  const workspaceName = workspaceLabel(cwd, pending?.name || remembered.name)
+
+  useEffect(() => {
+    if (!draft) return
+    const patch = {}
+    if (liveCwd) patch.cwd = liveCwd
+    if (liveProfile) patch.profile = liveProfile
+    if (patch.cwd || patch.profile) chatStore.set(key, patch)
+  }, [draft, key, liveCwd, liveProfile])
 
   const loadOptions = async () => {
     if (typeof host.request !== 'function') return
@@ -711,20 +803,31 @@ function ContextBar({ rest }) {
   }
 
   useEffect(() => {
-    if (!pendingWorkspace?.cwd) return
+    const pendingChoice = chatStore.pending(key)
+    if (!pendingChoice?.cwd) return
     if (!sessionId && !storedId) return
-    const cwd = pendingWorkspace.cwd
-    void applyWorkspaceCwd(cwd, { sessionId, storedId })
+    if (pendingChoice.inflight) return
+    pendingChoice.inflight = true
+    chatStore.setPending(key, pendingChoice)
+    void queueWorkspaceApply(pendingChoice.cwd, { sessionId, storedId })
       .then(applied => {
-        if (applied) setPendingWorkspace(null)
+        if (applied) chatStore.setPending(key, null)
+        else {
+          pendingChoice.inflight = false
+          chatStore.setPending(key, pendingChoice)
+        }
       })
-      .catch(error => host.notifyError(error, 'Workspace konnte nicht gesetzt werden'))
-  }, [pendingWorkspace, sessionId, storedId])
+      .catch(error => {
+        pendingChoice.inflight = false
+        chatStore.setPending(key, pendingChoice)
+        host.notifyError(error, 'Workspace konnte nicht gesetzt werden')
+      })
+  }, [key, sessionId, storedId])
 
   const onPickProfile = name => {
     if (!editable || name === profileName) return
+    chatStore.set(key, { profile: name })
     if (draft || !storedId) {
-      setPendingProfile(name)
       selectDraftProfile(name)
       return
     }
@@ -738,18 +841,19 @@ function ContextBar({ rest }) {
 
   const onPickWorkspace = async choice => {
     if (!editable || !choice?.cwd) return
-    if (choice.cwd === workspace.cwd) return
+    if (choice.cwd === cwd) return
     haptic('tap')
-    setPendingWorkspace(choice)
+    chatStore.set(key, { cwd: choice.cwd, name: choice.name || pathBasename(choice.cwd) })
+    const ids = {
+      sessionId: host.state.activeSessionId.get(),
+      storedId: host.state.focusedStoredSessionId.get()
+    }
+    if (!ids.sessionId && !ids.storedId) {
+      chatStore.setPending(key, choice)
+      return
+    }
     try {
-      const applied = await applyWorkspaceCwd(choice.cwd, {
-        sessionId: host.state.activeSessionId.get(),
-        storedId: host.state.focusedStoredSessionId.get()
-      })
-      if (applied) {
-        setPendingWorkspace(null)
-        return
-      }
+      await queueWorkspaceApply(choice.cwd, ids)
     } catch (error) {
       host.notifyError(error, 'Workspace konnte nicht gesetzt werden')
     }
@@ -780,7 +884,7 @@ function ContextBar({ rest }) {
         variant: 'ghost',
         disabled: !editable,
         className: PILL_CLASS,
-        title: editable ? 'Workspace auf Hermes-Host wählen' : `Workspace: ${workspace.cwd || workspaceName}`,
+        title: editable ? 'Workspace auf Hermes-Host wählen' : `Workspace: ${cwd || workspaceName}`,
         'aria-label': editable ? 'Workspace auf Hermes-Host wählen' : `Workspace: ${workspaceName}`,
         onClick: () => {
           if (!editable) return
@@ -795,7 +899,7 @@ function ContextBar({ rest }) {
       jsx(WorkspacePicker, {
         key: 'picker',
         open: pickerOpen,
-        initialPath: defaultPickerPath(workspace.cwd),
+        initialPath: defaultPickerPath(cwd),
         rest,
         onOpenChange: setPickerOpen,
         onSelect: cwd => {
@@ -918,11 +1022,14 @@ export {
   VERSION,
   applyWorkspaceCwd,
   clockStatusItem,
+  chatKey,
+  createChatContextStore,
   defaultPickerPath,
   isComposerDraft,
   isSessionRunning,
   listHostDir,
   moveStoredSessionProfile,
+  rememberFromSessionInfo,
   parentDir,
   pathCrumbs,
   projectChoices,

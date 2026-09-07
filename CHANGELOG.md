@@ -8,6 +8,7 @@
 - Workspace-Auswahl öffnet einen Ordnerbrowser auf dem Hermes-Host; Dateien sind sichtbar, gewählt wird ein Ordner.
 - Im leeren Chat und in **idle** bestehenden Chats sind Profil und Workspace wählbar; während ein Turn läuft bleiben sie fest.
 - Bestehende Chats können zwischen Profilen verschoben werden (`adopt_session_lineage_from`); Quelle wird archiviert, Ziel öffnet denselben Session-Key.
+- Workspace- und Profil-Pills sind pro Chat gespeichert und folgen `session.info`; ein zweiter Workspace-Wechsel blockiert nicht mehr durch parallele `session.workspace.move`-Calls.
 
 ## 0.5.0 — 2026-08-25
 
