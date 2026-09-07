@@ -15,6 +15,7 @@ const restCalls = []
 const queryCacheUpdates = []
 const newChatCalls = []
 const openSessionCalls = []
+const coreFsCalls = []
 const requestCalls = []
 const liveState = {
   activeSessionId: null,
@@ -153,6 +154,14 @@ const sandbox = {
       reload() {
         reloadCalls += 1
       }
+    },
+    hermesDesktop: {
+      api: async ({ path }) => {
+        coreFsCalls.push(path)
+        return {
+          entries: [{ name: 'Projekte', path: '/home/hermes/1_Projekte', isDirectory: true }]
+        }
+      }
     }
   },
   clearInterval() {},
@@ -194,6 +203,7 @@ const {
   defaultPickerPath,
   isComposerDraft,
   isSessionRunning,
+  listHostDir,
   moveStoredSessionProfile,
   parentDir,
   pathCrumbs,
@@ -382,6 +392,11 @@ assert.equal(isSessionRunning(null, false, {}), false)
 assert.equal(isSessionRunning('live-1', true, {}), true)
 assert.equal(isSessionRunning('live-1', false, { 'live-1': true }), true)
 assert.equal(isSessionRunning('live-1', false, {}), false)
+const fallback = await listHostDir('/home/hermes', async () => {
+  throw new Error('Error invoking remote method \'hermes:api\': Error: 404: {"detail":"No such API endpoint: /api/plugins/statusline-workspaces/fs/list"}')
+})
+assert.equal(fallback.entries[0].name, 'Projekte')
+assert.equal(coreFsCalls.some(path => path.includes('/api/fs/list')), true)
 assert.equal(workspaceLabel('/home/hermes/1_Projekte/BetterLife-PluginHermes'), 'BetterLife-PluginHermes')
 assert.equal(parentDir('/home/hermes/1_Projekte'), '/home/hermes')
 assert.equal(parentDir('/'), '/')

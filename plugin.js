@@ -380,6 +380,36 @@ const pathCrumbs = path => {
 
 const defaultPickerPath = cwd => String(cwd || '').trim() || '/home/hermes/1_Projekte'
 
+const isMissingPluginRoute = error => {
+  const text = error instanceof Error ? error.message : String(error || '')
+  return /404/.test(text) && /No such API endpoint/.test(text)
+}
+
+const coreFsList = async path => {
+  const api = typeof window !== 'undefined' ? window.hermesDesktop?.api : null
+  if (typeof api !== 'function') throw new Error('Host-Dateiliste nicht verfügbar')
+  const result = await api({ path: `/api/fs/list?path=${encodeURIComponent(path || '/')}` })
+  return {
+    path: path || '/',
+    entries: Array.isArray(result?.entries) ? result.entries : []
+  }
+}
+
+const listHostDir = async (path, rest) => {
+  if (typeof rest === 'function') {
+    try {
+      const result = await rest(`/fs/list?path=${encodeURIComponent(path || '')}`, { timeoutMs: 15_000 })
+      const detail = String(result?.detail || '')
+      if (detail.includes('No such API endpoint')) return coreFsList(path)
+      return result
+    } catch (error) {
+      if (isMissingPluginRoute(error)) return coreFsList(path)
+      throw error
+    }
+  }
+  return coreFsList(path)
+}
+
 const selectDraftProfile = name => {
   const profile = String(name || '').trim()
   if (!profile) return false
@@ -498,11 +528,11 @@ function WorkspacePicker({ open, initialPath, rest, onOpenChange, onSelect }) {
   }, [open, initialPath])
 
   useEffect(() => {
-    if (!open || typeof rest !== 'function') return undefined
+    if (!open) return undefined
     let alive = true
     setLoading(true)
     setError(null)
-    void rest(`/fs/list?path=${encodeURIComponent(currentPath || '')}`, { timeoutMs: 15_000 })
+    void listHostDir(currentPath || '', rest)
       .then(result => {
         if (!alive) return
         if (result?.error) {
@@ -891,6 +921,7 @@ export {
   defaultPickerPath,
   isComposerDraft,
   isSessionRunning,
+  listHostDir,
   moveStoredSessionProfile,
   parentDir,
   pathCrumbs,
