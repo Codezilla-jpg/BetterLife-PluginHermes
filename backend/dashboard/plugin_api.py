@@ -35,13 +35,7 @@ _CACHE_VALUE: Optional[dict[str, Any]] = None
 _CACHE_REFRESHING = False
 _GROK_BILLING_CREDITS = "https://cli-chat-proxy.grok.com/v1/billing?format=credits"
 _GROK_BILLING_MONTHLY = "https://cli-chat-proxy.grok.com/v1/billing"
-_GATEWAY_RESTART_COMMAND = (
-    "/usr/bin/sudo",
-    "-n",
-    "/usr/bin/systemctl",
-    "restart",
-    "hermes-gateway.service",
-)
+_GATEWAY_SERVICE = "hermes-gateway.service"
 _HERMES_RESTART_HELPER = Path(__file__).with_name("restart_helper.py")
 
 
@@ -459,18 +453,24 @@ def provider_usage_snapshot(force: bool = False) -> dict[str, Any]:
     return snapshot
 
 
-async def _restart_system_gateway(executor: Any = None) -> dict[str, Any]:
-    run = executor or asyncio.create_subprocess_exec
-    process = await run(
-        *_GATEWAY_RESTART_COMMAND,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
+async def _restart_system_gateway() -> dict[str, Any]:
+    pid = await asyncio.to_thread(_gateway_main_pid)
+    _schedule_hermes_restart(pid)
+    return {"ok": True, "target": "gateway", "pid": pid}
+
+
+def _gateway_main_pid() -> int:
+    result = subprocess.run(
+        ["/usr/bin/systemctl", "show", _GATEWAY_SERVICE, "-p", "MainPID", "--value"],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=10,
     )
-    stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=30)
-    if process.returncode != 0:
-        detail = (stderr or stdout or b"gateway restart failed").decode("utf-8", errors="replace").strip()
-        raise RuntimeError(detail)
-    return {"ok": True, "target": "gateway"}
+    pid = int((result.stdout or "").strip() or "0")
+    if pid <= 1:
+        raise RuntimeError(f"{_GATEWAY_SERVICE} is not running")
+    return pid
 
 
 def _schedule_hermes_restart(pid: Optional[int] = None) -> int:

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.1 — 2026-09-08
+
+### Fixed
+
+- Gateway-Rad startet `hermes-gateway.service` ohne `sudo` neu: SIGTERM an den Service-Prozess, systemd holt ihn zurück.
+
 ## 0.7.0 — 2026-09-08
 
 ### Added

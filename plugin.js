@@ -4,7 +4,7 @@ import { jsx } from 'react/jsx-runtime'
 
 const ID = 'statusline-workspaces'
 const NAME = 'BetterLife'
-const VERSION = '0.7.0'
+const VERSION = '0.7.1'
 const CLOCK_POLL_MS = 60_000
 const LIMITS_POLL_MS = 5 * 60_000
 const LIMITS_QUERY_KEY = [ID, 'limits']

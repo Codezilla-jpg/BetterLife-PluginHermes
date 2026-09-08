@@ -305,37 +305,29 @@ class ProviderSnapshotTests(unittest.TestCase):
 
 
 class RestartTests(unittest.TestCase):
-    def test_gateway_restart_uses_fixed_system_service_command(self) -> None:
-        calls = []
+    def test_gateway_restart_signals_service_main_pid(self) -> None:
+        with (
+            patch.object(API, "_gateway_main_pid", return_value=4242),
+            patch.object(API, "_schedule_hermes_restart", return_value=4242) as scheduled,
+        ):
+            result = asyncio.run(API._restart_system_gateway())
 
-        class Process:
-            returncode = 0
+        self.assertEqual(result, {"ok": True, "target": "gateway", "pid": 4242})
+        scheduled.assert_called_once_with(4242)
 
-            async def communicate(self):
-                return b"", b""
+    def test_gateway_restart_surfaces_missing_service(self) -> None:
+        with patch.object(API, "_gateway_main_pid", side_effect=RuntimeError("hermes-gateway.service is not running")):
+            with self.assertRaisesRegex(RuntimeError, "not running"):
+                asyncio.run(API._restart_system_gateway())
 
-        async def executor(*command, **kwargs):
-            calls.append((command, kwargs))
-            return Process()
+    def test_gateway_main_pid_reads_systemctl_without_sudo(self) -> None:
+        completed = types.SimpleNamespace(stdout="3536711\n")
+        with patch.object(API.subprocess, "run", return_value=completed) as run:
+            pid = API._gateway_main_pid()
 
-        result = asyncio.run(API._restart_system_gateway(executor))
-
-        self.assertEqual(result, {"ok": True, "target": "gateway"})
-        self.assertEqual(calls[0][0], API._GATEWAY_RESTART_COMMAND)
-        self.assertEqual(calls[0][1]["stdout"], asyncio.subprocess.PIPE)
-
-    def test_gateway_restart_surfaces_service_failure(self) -> None:
-        class Process:
-            returncode = 1
-
-            async def communicate(self):
-                return b"", b"permission denied"
-
-        async def executor(*_command, **_kwargs):
-            return Process()
-
-        with self.assertRaisesRegex(RuntimeError, "permission denied"):
-            asyncio.run(API._restart_system_gateway(executor))
+        self.assertEqual(pid, 3536711)
+        self.assertEqual(run.call_args.args[0][0:3], ["/usr/bin/systemctl", "show", "hermes-gateway.service"])
+        self.assertNotIn("sudo", run.call_args.args[0])
 
     def test_hermes_restart_helper_escalates_for_stubborn_process(self) -> None:
         victim = subprocess.Popen(

@@ -135,7 +135,7 @@ await mod.evaluate()
 
 const { VERSION, default: plugin, clockStatusItem } = mod.namespace
 
-assert.equal(VERSION, '0.7.0')
+assert.equal(VERSION, '0.7.1')
 assert.equal(plugin.id, 'statusline-workspaces')
 assert.equal(plugin.name, 'BetterLife')
 assert.equal(plugin.version, VERSION)
