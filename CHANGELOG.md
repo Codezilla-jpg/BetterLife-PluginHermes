@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.1 — 2026-09-08
+
+### Removed
+
+- Profil- und Workspace-Auswahl über der Chateingabe. Die File-Ansicht im Desktop folgt dem Chat nicht über Plugin-Pills.
+
 ## 0.6.0 — 2026-09-07
 
 ### Added

@@ -1,12 +1,11 @@
 # BetterLife – Hermes Plugin
 
-BetterLife bündelt Provider-Limits, Composer-Profil/Workspace-Pills, lokale Uhrzeit und Neustart-Aktionen in einem Hermes-Desktop-Plugin.
+BetterLife bündelt Provider-Limits, lokale Uhrzeit und Neustart-Aktionen in einem Hermes-Desktop-Plugin.
 
 ## Funktionen
 
 - **Limits-Pane:** Restkontingent-Ringe für Nous Research, OpenAI Codex und xAI Grok.
 - **Kontodetails:** Provider, Account, Tarif und nächste Reset-Zeit.
-- **Composer-Kontext:** Profil- und Workspace-Auswahl über der Chateingabe. Idle-Chats (auch neue Chats in einem Profil) bleiben wählbar; laufende Turns sperren die Pills. Bestehende Chats können zwischen Profilen verschoben werden. Workspace zeigt Dateien und Ordner des Hermes-Hosts.
 - **Uhrzeit:** lokale Zeit im 24-Stunden-Format.
 - **Neustarts:** Client, Messaging-Gateway oder verbundene Hermes-Instanz.
 - **Hover-Namen:** Die drei Restart-Räder erweitern sich zu **Client**, **Gateway** oder **Hermes**.
@@ -16,8 +15,8 @@ Das eigenständige `provider-limits`-Plugin wird nach der Installation nicht meh
 
 ## Architektur
 
-- `plugin.js` registriert die Limits-Pane, Composer-Profil-Pill und Host-Workspace-Picker sowie Uhr und Restart-Aktionen in der Statusleiste.
-- `backend/dashboard/plugin_api.py` liest die Provider-Kontingente serverseitig, listet Host-Ordner für den Workspace-Picker und führt feste Neustart-Aktionen aus.
+- `plugin.js` registriert die Limits-Pane sowie Uhr und Restart-Aktionen in der Statusleiste.
+- `backend/dashboard/plugin_api.py` liest die Provider-Kontingente serverseitig und führt feste Neustart-Aktionen aus.
 
 ## Datenquellen
 
