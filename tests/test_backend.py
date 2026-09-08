@@ -152,6 +152,71 @@ class CodexUsageParsingTests(unittest.TestCase):
         self.assertFalse(result["available"])
         self.assertTrue(any("Codex" in message for message in logs.output))
 
+    def test_chatgpt_backend_uses_wham_usage_url(self) -> None:
+        self.assertEqual(
+            API._codex_usage_url("https://chatgpt.com/backend-api/codex"),
+            "https://chatgpt.com/backend-api/wham/usage",
+        )
+        self.assertEqual(
+            API._codex_usage_url(""),
+            "https://chatgpt.com/backend-api/wham/usage",
+        )
+        self.assertEqual(
+            API._codex_usage_url("https://example.invalid"),
+            "https://example.invalid/api/codex/usage",
+        )
+
+
+class ClaudeUsageTests(unittest.TestCase):
+    def test_oauth_snapshot_uses_session_window(self) -> None:
+        snapshot = types.SimpleNamespace(
+            unavailable_reason=None,
+            plan="Pro",
+            details=("Extra usage: 1.00 / 5.00 USD",),
+            windows=(
+                types.SimpleNamespace(
+                    label="Current session",
+                    used_percent=40.0,
+                    reset_at="2026-09-08T18:00:00+00:00",
+                    detail=None,
+                ),
+                types.SimpleNamespace(
+                    label="Current week",
+                    used_percent=12.0,
+                    reset_at="2026-09-14T00:00:00+00:00",
+                    detail=None,
+                ),
+            ),
+        )
+        with patch.object(API, "fetch_account_usage", return_value=snapshot):
+            result = API._claude_usage()
+
+        self.assertTrue(result["available"])
+        self.assertEqual(result["id"], "claude")
+        self.assertEqual(result["label"], "Claude")
+        self.assertEqual(result["plan"], "Pro")
+        self.assertEqual(result["display_used_percent"], 40.0)
+        self.assertEqual(result["windows"][0]["label"], "Current session")
+        self.assertEqual(result["details"][0], "Extra usage: 1.00 / 5.00 USD")
+
+    def test_missing_oauth_is_unavailable(self) -> None:
+        with patch.object(API, "fetch_account_usage", return_value=None):
+            result = API._claude_usage()
+        self.assertFalse(result["available"])
+        self.assertEqual(result["reason"], "Claude OAuth is not configured")
+
+    def test_api_key_accounts_are_unavailable(self) -> None:
+        snapshot = types.SimpleNamespace(
+            unavailable_reason="Anthropic account limits are only available for OAuth-backed Claude accounts.",
+            plan=None,
+            details=(),
+            windows=(),
+        )
+        with patch.object(API, "fetch_account_usage", return_value=snapshot):
+            result = API._claude_usage()
+        self.assertFalse(result["available"])
+        self.assertIn("OAuth-backed", result["reason"])
+
 
 class NousUsageTests(unittest.TestCase):
     def test_logged_in_account_without_quota_is_unavailable(self) -> None:
@@ -178,16 +243,20 @@ class ProviderSnapshotTests(unittest.TestCase):
         setattr(API, "_CACHE_VALUE", None)
         with (
             patch.object(API, "_nous_usage", return_value={"id": "nous"}),
+            patch.object(API, "_claude_usage", return_value={"id": "claude"}),
             patch.object(API, "_codex_usage", return_value={"id": "codex"}),
             patch.object(API, "_grok_usage", return_value={"id": "grok"}),
         ):
             snapshot = API.provider_usage_snapshot(force=True)
         setattr(API, "_CACHE_VALUE", None)
 
-        self.assertEqual([provider["id"] for provider in snapshot["providers"]], ["nous", "codex", "grok"])
+        self.assertEqual(
+            [provider["id"] for provider in snapshot["providers"]],
+            ["nous", "claude", "codex", "grok"],
+        )
 
     def test_provider_collectors_run_in_parallel(self) -> None:
-        barrier = threading.Barrier(3, timeout=1)
+        barrier = threading.Barrier(4, timeout=1)
 
         def collect(provider_id):
             barrier.wait()
@@ -196,13 +265,17 @@ class ProviderSnapshotTests(unittest.TestCase):
         setattr(API, "_CACHE_VALUE", None)
         with (
             patch.object(API, "_nous_usage", side_effect=lambda: collect("nous")),
+            patch.object(API, "_claude_usage", side_effect=lambda: collect("claude")),
             patch.object(API, "_codex_usage", side_effect=lambda: collect("codex")),
             patch.object(API, "_grok_usage", side_effect=lambda: collect("grok")),
         ):
             snapshot = API.provider_usage_snapshot(force=True)
         setattr(API, "_CACHE_VALUE", None)
 
-        self.assertEqual([provider["id"] for provider in snapshot["providers"]], ["nous", "codex", "grok"])
+        self.assertEqual(
+            [provider["id"] for provider in snapshot["providers"]],
+            ["nous", "claude", "codex", "grok"],
+        )
 
     def test_concurrent_force_refreshes_share_one_collection(self) -> None:
         started = threading.Event()
@@ -214,7 +287,7 @@ class ProviderSnapshotTests(unittest.TestCase):
             calls += 1
             started.set()
             self.assertTrue(release.wait(timeout=1))
-            return [{"id": "nous"}, {"id": "codex"}, {"id": "grok"}]
+            return [{"id": "nous"}, {"id": "claude"}, {"id": "codex"}, {"id": "grok"}]
 
         setattr(API, "_CACHE_VALUE", None)
         with patch.object(API, "_collect_provider_usage", side_effect=collect):

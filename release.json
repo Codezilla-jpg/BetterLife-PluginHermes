@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "statusline-workspaces",
   "name": "BetterLife",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "entrypoint": "plugin.js",
   "backend": "backend/dashboard/plugin_api.py",
   "compatibility": {

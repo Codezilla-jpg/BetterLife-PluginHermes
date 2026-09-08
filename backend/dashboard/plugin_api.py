@@ -115,14 +115,62 @@ def _unavailable(provider_id: str, label: str, reason: str) -> dict[str, Any]:
     }
 
 
+def _codex_usage_url(base_url: Optional[str] = None) -> str:
+    """ChatGPT backend-api uses /wham/usage; other Codex bases use /api/codex/usage."""
+    normalized = (base_url or "").strip().rstrip("/") or "https://chatgpt.com/backend-api/codex"
+    normalized = normalized.removesuffix("/codex")
+    prefix = normalized + ("/wham" if "/backend-api" in normalized else "/api/codex")
+    return prefix + "/usage"
+
+
 def _codex_credentials() -> tuple[Optional[str], str, Optional[str]]:
-    from agent.account_usage import (
-        _resolve_codex_usage_credentials,
-        _resolve_codex_usage_url,
-    )
+    from agent.account_usage import _resolve_codex_usage_credentials
 
     token, base_url, account_id = _resolve_codex_usage_credentials(None, None)
-    return token, _resolve_codex_usage_url(base_url), account_id
+    return token, _codex_usage_url(base_url), account_id
+
+
+def _provider_from_snapshot(
+    provider_id: str,
+    label: str,
+    snapshot: Any,
+    missing_reason: str,
+    *,
+    account: Optional[str] = None,
+) -> dict[str, Any]:
+    if snapshot is None:
+        return _unavailable(provider_id, label, missing_reason)
+    reason = getattr(snapshot, "unavailable_reason", None)
+    if reason:
+        result = _unavailable(provider_id, label, str(reason))
+        result["plan"] = getattr(snapshot, "plan", None)
+        result["account"] = account
+        return result
+    windows: list[dict[str, Any]] = []
+    for item in getattr(snapshot, "windows", ()) or ():
+        used = getattr(item, "used_percent", None)
+        if used is None:
+            continue
+        windows.append(
+            _window(
+                str(getattr(item, "label", "window")).lower().replace(" ", "-"),
+                str(getattr(item, "label", "Window")),
+                used,
+                getattr(item, "reset_at", None),
+                getattr(item, "detail", None),
+            )
+        )
+    details = [str(detail) for detail in (getattr(snapshot, "details", ()) or ()) if detail]
+    return {
+        "id": provider_id,
+        "label": label,
+        "available": bool(windows),
+        "reason": None if windows else missing_reason,
+        "account": account,
+        "plan": getattr(snapshot, "plan", None),
+        "windows": windows,
+        "details": details,
+    }
 
 
 def _fetch_codex_payload(
@@ -224,28 +272,26 @@ def _codex_usage() -> dict[str, Any]:
         _LOGGER.debug("Rich Codex usage failed; using canonical fallback", exc_info=True)
 
     snapshot = fetch_account_usage("openai-codex")
-    if snapshot is None:
-        return _unavailable("codex", "OpenAI Codex", "Codex quota unavailable")
-    windows = [
-        _window(
-            item.label.lower().replace(" ", "-"),
-            item.label,
-            item.used_percent,
-            item.reset_at,
-            item.detail,
-        )
-        for item in snapshot.windows
-    ]
-    return {
-        "id": "codex",
-        "label": "OpenAI Codex",
-        "available": bool(windows),
-        "reason": None if windows else "Codex quota unavailable",
-        "account": None,
-        "plan": snapshot.plan,
-        "windows": windows,
-        "details": list(snapshot.details),
-    }
+    return _provider_from_snapshot("codex", "OpenAI Codex", snapshot, "Codex quota unavailable")
+
+
+def _claude_usage() -> dict[str, Any]:
+    try:
+        snapshot = fetch_account_usage("anthropic")
+    except Exception:
+        _LOGGER.debug("Claude usage collection failed", exc_info=True)
+        return _unavailable("claude", "Claude", "Claude quota unavailable")
+    result = _provider_from_snapshot(
+        "claude",
+        "Claude",
+        snapshot,
+        "Claude OAuth is not configured",
+    )
+    session = next((window for window in result["windows"] if window["key"] == "current-session"), None)
+    if session is not None:
+        result["display_used_percent"] = session["used_percent"]
+        result["display_reset_at"] = session["reset_at"]
+    return result
 
 
 def _select_grok_token() -> Optional[str]:
@@ -376,7 +422,7 @@ def _nous_usage() -> dict[str, Any]:
 
 
 def _collect_provider_usage() -> list[dict[str, Any]]:
-    collectors = (_nous_usage, _codex_usage, _grok_usage)
+    collectors = (_nous_usage, _claude_usage, _codex_usage, _grok_usage)
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(collectors)) as executor:
         futures = [executor.submit(collector) for collector in collectors]
         return [future.result() for future in futures]

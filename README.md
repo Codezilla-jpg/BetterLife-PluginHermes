@@ -4,7 +4,7 @@ BetterLife bündelt Provider-Limits, lokale Uhrzeit und Neustart-Aktionen in ein
 
 ## Funktionen
 
-- **Limits-Pane:** Restkontingent-Ringe für Nous Research, OpenAI Codex und xAI Grok.
+- **Limits-Pane:** Restkontingent-Ringe für Nous Research, Claude-Abo, OpenAI Codex und xAI Grok.
 - **Kontodetails:** Provider, Account, Tarif und nächste Reset-Zeit.
 - **Uhrzeit:** lokale Zeit im 24-Stunden-Format.
 - **Neustarts:** Client, Messaging-Gateway oder verbundene Hermes-Instanz.
@@ -21,6 +21,7 @@ Das eigenständige `provider-limits`-Plugin wird nach der Installation nicht meh
 ## Datenquellen
 
 - Nous: Hermes-Nous-Portal-Account.
+- Claude: Anthropic-OAuth-Abo (`/api/oauth/usage`).
 - Codex: Codex-Usage-Endpunkt mit Fallback auf `agent.account_usage`.
 - Grok: `https://cli-chat-proxy.grok.com/v1/billing`.
 

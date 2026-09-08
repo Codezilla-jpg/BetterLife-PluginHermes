@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.7.0 — 2026-09-08
+
+### Added
+
+- Claude-Abo-Kontingent in der Limits-Pane (OAuth-Nutzung: Session und Woche).
+
+### Fixed
+
+- Codex-Usage trifft wieder `/wham/usage` statt der entfernten Hermes-Hilfsfunktion `_resolve_codex_usage_url`.
+
 ## 0.6.1 — 2026-09-08
 
 ### Removed

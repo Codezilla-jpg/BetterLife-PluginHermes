@@ -44,6 +44,17 @@ const sdk = {
           windows: []
         },
         {
+          id: 'claude',
+          label: 'Claude',
+          available: true,
+          display_used_percent: 40,
+          display_reset_at: new Date(Date.now() + 3 * 60 * 60_000).toISOString(),
+          windows: [
+            { used_percent: 40, reset_at: new Date(Date.now() + 3 * 60 * 60_000).toISOString() },
+            { used_percent: 10, reset_at: new Date(Date.now() + 24 * 60 * 60_000).toISOString() }
+          ]
+        },
+        {
           id: 'codex',
           label: 'OpenAI Codex',
           available: true,
@@ -124,7 +135,7 @@ await mod.evaluate()
 
 const { VERSION, default: plugin, clockStatusItem } = mod.namespace
 
-assert.equal(VERSION, '0.6.1')
+assert.equal(VERSION, '0.7.0')
 assert.equal(plugin.id, 'statusline-workspaces')
 assert.equal(plugin.name, 'BetterLife')
 assert.equal(plugin.version, VERSION)
@@ -166,7 +177,7 @@ const limitsElement = limitsPane.render()
 const limitsPage = limitsElement.type(limitsElement.props)
 assert.equal(limitsPage.type, 'div')
 assert.equal(limitsPage.props.children[0].props.children[0].props.children, 'Limits')
-assert.equal(limitsPage.props.children[1].props.children.length, 3)
+assert.equal(limitsPage.props.children[1].props.children.length, 4)
 const nousRowElement = limitsPage.props.children[1].props.children[0]
 const nousRow = nousRowElement.type(nousRowElement.props)
 assert.equal(nousRow.props.children[0].props.left, null)
@@ -181,7 +192,10 @@ const nousTab = nousTabElement.type(nousTabElement.props)
 const nousReason = nousTab.props.children.find(child => child.props?.key === 'reason')
 assert.equal(nousReason.props.children, 'Nicht verfügbar')
 assert.equal(nousReason.props.title, 'Nous quota unavailable')
-const codexRowElement = limitsPage.props.children[1].props.children[1]
+const claudeRowElement = limitsPage.props.children[1].props.children[1]
+const claudeRow = claudeRowElement.type(claudeRowElement.props)
+assert.equal(claudeRow.props.children[0].props.left, 60)
+const codexRowElement = limitsPage.props.children[1].props.children[2]
 const codexRow = codexRowElement.type(codexRowElement.props)
 assert.equal(codexRow.props.children[0].props.left, 20)
 const codexRingElement = codexRow.props.children[0]
@@ -201,7 +215,7 @@ const codexTab = codexTabElement.type(codexTabElement.props)
 assert.equal(codexTab.props.style.flex, '0 1 30rem')
 assert.doesNotMatch(codexTab.props.className, /\bflex-1\b/)
 assert.match(codexTab.props.children.find(child => child.props?.key === 'reset').props.children, /^Reset in (23h|1d)/)
-const grokRowElement = limitsPage.props.children[1].props.children[2]
+const grokRowElement = limitsPage.props.children[1].props.children[3]
 const grokRow = grokRowElement.type(grokRowElement.props)
 assert.equal(grokRow.props.children[0].props.left, 90)
 const grokTabElement = grokRow.props.children[1]
