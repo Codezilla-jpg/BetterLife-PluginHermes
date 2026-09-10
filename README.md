@@ -15,14 +15,16 @@ Das eigenständige `provider-limits`-Plugin wird nach der Installation nicht meh
 
 ## Architektur
 
-- `plugin.js` registriert die Limits-Pane sowie Uhr und Restart-Aktionen in der Statusleiste.
-- `backend/dashboard/plugin_api.py` liest die Provider-Kontingente serverseitig und führt feste Neustart-Aktionen aus.
+Unified package (Hermes ≥ 0.21):
+
+- `desktop/plugin.js` — Limits-Pane, Uhr und Restart-Aktionen.
+- `dashboard/plugin_api.py` — Provider-Kontingente und feste Neustart-Aktionen.
 
 ## Datenquellen
 
 - Nous: Hermes-Nous-Portal-Account.
 - Claude: Anthropic-OAuth-Abo (`/api/oauth/usage`).
-- Codex: Codex-Usage-Endpunkt mit Fallback auf `agent.account_usage`.
+- Codex: öffentliche Runtime-Credentials (`hermes_cli.auth_codex`) plus `/wham/usage`, Fallback `fetch_account_usage`.
 - Grok: `https://cli-chat-proxy.grok.com/v1/billing`.
 
 Credentials bleiben im Hermes-Backend und werden nie an den Renderer übertragen.
@@ -32,19 +34,23 @@ Credentials bleiben im Hermes-Backend und werden nie an den Renderer übertragen
 ### Hermes-Host
 
 ```bash
-mkdir -p ~/.hermes/plugins/statusline-workspaces/dashboard
-cp {plugin.yaml,__init__.py} ~/.hermes/plugins/statusline-workspaces/
-cp backend/dashboard/{manifest.json,plugin_api.py,restart_helper.py} ~/.hermes/plugins/statusline-workspaces/dashboard/
-hermes plugins enable statusline-workspaces
+id=statusline-workspaces
+mkdir -p ~/.hermes/plugins/$id/{dashboard,desktop}
+cp {plugin.yaml,__init__.py} ~/.hermes/plugins/$id/
+cp dashboard/{manifest.json,plugin_api.py,restart_helper.py} ~/.hermes/plugins/$id/dashboard/
+cp desktop/plugin.js ~/.hermes/plugins/$id/desktop/plugin.js
+hermes plugins enable $id
 ```
 
 Danach Gateway beziehungsweise Dashboard neu starten.
 
-### Hermes Desktop
+### Hermes Desktop (Electron-Host)
+
+Die Desktop-Hälfte unter `plugins/<id>/desktop/` ist opt-in. Auf den Arbeits-Macs zusätzlich nach `desktop-plugins/` kopieren (default-on):
 
 ```bash
 mkdir -p ~/.hermes/desktop-plugins/statusline-workspaces
-cp plugin.js ~/.hermes/desktop-plugins/statusline-workspaces/plugin.js
+cp desktop/plugin.js ~/.hermes/desktop-plugins/statusline-workspaces/plugin.js
 ```
 
 Hermes Desktop lädt Dateiänderungen automatisch. Falls das Plugin bereits deaktiviert war, muss es in **Settings → Plugins** wieder aktiviert werden.

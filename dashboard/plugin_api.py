@@ -118,10 +118,30 @@ def _codex_usage_url(base_url: Optional[str] = None) -> str:
 
 
 def _codex_credentials() -> tuple[Optional[str], str, Optional[str]]:
-    from agent.account_usage import _resolve_codex_usage_credentials
+    """Public Codex credentials only — no private Hermes helpers.
 
-    token, base_url, account_id = _resolve_codex_usage_credentials(None, None)
-    return token, _codex_usage_url(base_url), account_id
+    ``resolve_codex_runtime_credentials`` already falls back to the credential
+    pool. A second pool select covers the case where the runtime resolver is
+    missing on an older Hermes. ``account_id`` is optional on the usage request.
+    """
+    try:
+        from hermes_cli.auth_codex import resolve_codex_runtime_credentials
+
+        creds = resolve_codex_runtime_credentials(refresh_if_expiring=True)
+        token = str((creds or {}).get("api_key") or "").strip()
+        if token:
+            return token, _codex_usage_url((creds or {}).get("base_url")), None
+    except Exception:
+        _LOGGER.debug("Codex runtime credentials unavailable", exc_info=True)
+    try:
+        entry = load_pool("openai-codex").select()
+        if entry is not None:
+            token = str(getattr(entry, "runtime_api_key", "") or "").strip()
+            if token:
+                return token, _codex_usage_url(getattr(entry, "runtime_base_url", None)), None
+    except Exception:
+        _LOGGER.debug("Codex pool credentials unavailable", exc_info=True)
+    return None, _codex_usage_url(None), None
 
 
 def _provider_from_snapshot(

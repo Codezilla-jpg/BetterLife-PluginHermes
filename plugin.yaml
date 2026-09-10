@@ -1,3 +1,7 @@
 name: statusline-workspaces
-version: 0.7.1
+version: 0.8.0
 description: Provider limits pane, restart actions and 24-hour local clock for BetterLife.
+manifest_version: 2
+license: MIT
+homepage: https://github.com/Codezilla-jpg/BetterLife-PluginHermes
+tags: [desktop, statusbar, limits]

@@ -43,7 +43,7 @@ sys.modules.update(
     }
 )
 
-MODULE_PATH = Path(__file__).parents[1] / "backend" / "dashboard" / "plugin_api.py"
+MODULE_PATH = Path(__file__).parents[1] / "dashboard" / "plugin_api.py"
 SPEC = importlib.util.spec_from_file_location("pulsebar_plugin_api", MODULE_PATH)
 assert SPEC and SPEC.loader
 API = importlib.util.module_from_spec(SPEC)

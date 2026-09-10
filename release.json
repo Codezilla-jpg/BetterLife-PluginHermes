@@ -2,12 +2,12 @@
   "schemaVersion": 1,
   "id": "statusline-workspaces",
   "name": "BetterLife",
-  "version": "0.7.1",
-  "entrypoint": "plugin.js",
-  "backend": "backend/dashboard/plugin_api.py",
+  "version": "0.8.0",
+  "entrypoint": "desktop/plugin.js",
+  "backend": "dashboard/plugin_api.py",
   "compatibility": {
     "runtime": "Hermes Desktop plugin SDK",
-    "minimumHermesVersion": "0.19.1",
+    "minimumHermesVersion": "0.21.1",
     "status": "ready",
     "requires": [
       "STATUSBAR_AREAS",

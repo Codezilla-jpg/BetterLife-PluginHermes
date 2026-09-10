@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.0 — 2026-09-10
+
+### Changed
+
+- Unified-Package-Layout: `desktop/plugin.js` + `dashboard/plugin_api.py` (Hermes ≥ 0.21).
+- Manifest v2 (`manifest_version: 2`).
+- Codex-Credentials nur noch über öffentliche APIs (`resolve_codex_runtime_credentials`, Credential-Pool) — kein privates `_resolve_codex_usage_credentials`.
+
 ## 0.7.1 — 2026-09-08
 
 ### Fixed

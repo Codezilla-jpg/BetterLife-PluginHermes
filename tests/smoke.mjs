@@ -5,7 +5,7 @@ import vm from 'node:vm'
 import { fileURLToPath } from 'node:url'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const pluginPath = path.join(repoRoot, 'plugin.js')
+const pluginPath = path.join(repoRoot, 'desktop', 'plugin.js')
 const source = fs.readFileSync(pluginPath, 'utf8')
 const registrations = []
 let hapticCalls = 0
@@ -135,7 +135,7 @@ await mod.evaluate()
 
 const { VERSION, default: plugin, clockStatusItem } = mod.namespace
 
-assert.equal(VERSION, '0.7.1')
+assert.equal(VERSION, '0.8.0')
 assert.equal(plugin.id, 'statusline-workspaces')
 assert.equal(plugin.name, 'BetterLife')
 assert.equal(plugin.version, VERSION)
