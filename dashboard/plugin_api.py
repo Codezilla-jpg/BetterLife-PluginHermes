@@ -35,6 +35,8 @@ _CACHE_VALUE: Optional[dict[str, Any]] = None
 _CACHE_REFRESHING = False
 _GROK_BILLING_CREDITS = "https://cli-chat-proxy.grok.com/v1/billing?format=credits"
 _GROK_BILLING_MONTHLY = "https://cli-chat-proxy.grok.com/v1/billing"
+_OPENROUTER_KEY_URL = "https://openrouter.ai/api/v1/key"
+_OPENROUTER_ENV_VARS = ("OPENROUTER_API_KEY", "OPENROUTER_KEY")
 _GATEWAY_SERVICE = "hermes-gateway.service"
 _HERMES_RESTART_HELPER = Path(__file__).with_name("restart_helper.py")
 
@@ -397,6 +399,115 @@ def _grok_usage() -> dict[str, Any]:
         return _unavailable("grok", "xAI Grok", "Grok billing endpoint unavailable")
 
 
+def _select_openrouter_key() -> Optional[str]:
+    for var in _OPENROUTER_ENV_VARS:
+        token = str(os.environ.get(var, "") or "").strip()
+        if token:
+            return token
+    try:
+        pool = load_pool("openrouter")
+    except Exception:
+        _LOGGER.debug("OpenRouter credential pool unavailable", exc_info=True)
+        return None
+    if pool is None:
+        return None
+    try:
+        selected = pool.select()
+        candidates = [selected] if selected is not None else pool.entries()
+        for entry in candidates:
+            token = str(getattr(entry, "runtime_api_key", "") or "").strip()
+            if token:
+                return token
+    except Exception:
+        _LOGGER.debug("OpenRouter credential pool lookup failed", exc_info=True)
+    return None
+
+
+def _parse_openrouter_payload(payload: Any) -> dict[str, Any]:
+    result = _unavailable("openrouter", "OpenRouter", "OpenRouter quota unavailable")
+    data = payload.get("data") if isinstance(payload, dict) else None
+    if not isinstance(data, dict):
+        return result
+
+    windows: list[dict[str, Any]] = []
+    details: list[str] = []
+
+    usage = _number(data.get("usage"))
+    limit = _number(data.get("limit"))
+    remaining = _number(data.get("limit_remaining"))
+
+    if limit is not None and limit > 0 and remaining is not None:
+        # Key hat ein Credit-Limit: Ring zeigt verbrauchten Anteil davon.
+        used_percent = min(100.0, max(0.0, (limit - remaining) / limit * 100.0))
+        windows.append(
+            _window(
+                "credits",
+                "Key credits",
+                used_percent,
+                data.get("limit_reset"),
+                f"{remaining:.2f} / {limit:.2f} credits übrig",
+            )
+        )
+    elif usage is not None:
+        # Unlimitierter Key: kein sinnvoller Prozentwert, nur Verbrauch anzeigen.
+        details.append(f"Verbraucht: {usage:.2f} credits (kein Key-Limit)")
+
+    free = data.get("free_model_daily_requests")
+    if isinstance(free, dict):
+        free_limit = _number(free.get("limit"))
+        free_used = _number(free.get("used"))
+        if free_limit is not None and free_limit > 0 and free_used is not None:
+            windows.append(
+                _window(
+                    "free-daily",
+                    "Free models (täglich)",
+                    min(100.0, free_used / free_limit * 100.0),
+                    None,
+                    f"{free_used:g} / {free_limit:g} Requests",
+                )
+            )
+
+    for label, key in (("Heute", "usage_daily"), ("Woche", "usage_weekly"), ("Monat", "usage_monthly")):
+        value = _number(data.get(key))
+        if value is not None and value > 0:
+            details.append(f"{label}: {value:.2f} credits")
+
+    if not windows and not details:
+        return result
+
+    result["available"] = True
+    result["reason"] = None
+    result["account"] = data.get("label") or None
+    result["plan"] = "Free tier" if data.get("is_free_tier") else "Paid"
+    result["windows"] = windows
+    result["details"] = details
+    if windows:
+        result["display_used_percent"] = windows[0]["used_percent"]
+        result["display_reset_at"] = windows[0]["reset_at"]
+    return result
+
+
+def _openrouter_usage() -> dict[str, Any]:
+    token = _select_openrouter_key()
+    if not token:
+        return _unavailable("openrouter", "OpenRouter", "OpenRouter API key is not configured")
+    try:
+        with httpx.Client(timeout=15.0) as client:
+            response = client.get(
+                _OPENROUTER_KEY_URL,
+                headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
+                follow_redirects=False,
+            )
+        if response.status_code == 401:
+            return _unavailable("openrouter", "OpenRouter", "OpenRouter API key rejected")
+        if response.status_code != 200:
+            return _unavailable("openrouter", "OpenRouter", "OpenRouter endpoint unavailable")
+        return _parse_openrouter_payload(response.json())
+    except Exception:
+        _LOGGER.debug("OpenRouter usage collection failed", exc_info=True)
+        return _unavailable("openrouter", "OpenRouter", "OpenRouter endpoint unavailable")
+
+
 def _nous_usage() -> dict[str, Any]:
     unavailable = _unavailable("nous", "Nous Research", "Nous Portal unavailable")
     try:
@@ -436,7 +547,7 @@ def _nous_usage() -> dict[str, Any]:
 
 
 def _collect_provider_usage() -> list[dict[str, Any]]:
-    collectors = (_nous_usage, _claude_usage, _codex_usage, _grok_usage)
+    collectors = (_nous_usage, _claude_usage, _codex_usage, _grok_usage, _openrouter_usage)
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(collectors)) as executor:
         futures = [executor.submit(collector) for collector in collectors]
         return [future.result() for future in futures]

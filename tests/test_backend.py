@@ -238,6 +238,78 @@ class NousUsageTests(unittest.TestCase):
         self.assertEqual(result["account"], "developer@example.invalid")
 
 
+class OpenRouterUsageTests(unittest.TestCase):
+    def test_key_with_credit_limit_reports_remaining(self) -> None:
+        payload = {
+            "data": {
+                "label": "hermes-key",
+                "limit": 50.0,
+                "limit_remaining": 12.5,
+                "usage": 37.5,
+                "usage_monthly": 37.5,
+                "is_free_tier": False,
+            }
+        }
+        result = API._parse_openrouter_payload(payload)
+
+        self.assertTrue(result["available"])
+        self.assertEqual(result["display_used_percent"], 75.0)
+        self.assertEqual(result["account"], "hermes-key")
+        self.assertEqual(result["plan"], "Paid")
+        self.assertEqual(result["windows"][0]["key"], "credits")
+
+    def test_key_without_limit_reports_usage_detail_only(self) -> None:
+        payload = {
+            "data": {
+                "label": "unlimited",
+                "limit": None,
+                "limit_remaining": None,
+                "usage": 8.25,
+                "is_free_tier": True,
+            }
+        }
+        result = API._parse_openrouter_payload(payload)
+
+        self.assertTrue(result["available"])
+        self.assertEqual(result["plan"], "Free tier")
+        self.assertEqual(result["windows"], [])
+        self.assertTrue(any("8.25" in detail for detail in result["details"]))
+
+    def test_free_model_requests_become_window(self) -> None:
+        payload = {
+            "data": {
+                "limit": None,
+                "limit_remaining": None,
+                "free_model_daily_requests": {"used": 5, "limit": 50, "remaining": 45},
+            }
+        }
+        result = API._parse_openrouter_payload(payload)
+
+        self.assertTrue(result["available"])
+        self.assertEqual(result["windows"][0]["key"], "free-daily")
+        self.assertEqual(result["windows"][0]["used_percent"], 10.0)
+
+    def test_malformed_payload_stays_unavailable(self) -> None:
+        result = API._parse_openrouter_payload({"unexpected": True})
+
+        self.assertFalse(result["available"])
+        self.assertEqual(result["id"], "openrouter")
+
+    def test_missing_key_is_reported_as_not_configured(self) -> None:
+        with patch.object(API, "_select_openrouter_key", return_value=None):
+            result = API._openrouter_usage()
+
+        self.assertFalse(result["available"])
+        self.assertEqual(result["reason"], "OpenRouter API key is not configured")
+
+    def test_pool_without_backend_does_not_raise(self) -> None:
+        with (
+            patch.dict(API.os.environ, {}, clear=True),
+            patch.object(API, "load_pool", return_value=None),
+        ):
+            self.assertIsNone(API._select_openrouter_key())
+
+
 class ProviderSnapshotTests(unittest.TestCase):
     def test_snapshot_contains_nous_codex_and_grok(self) -> None:
         setattr(API, "_CACHE_VALUE", None)
@@ -246,17 +318,18 @@ class ProviderSnapshotTests(unittest.TestCase):
             patch.object(API, "_claude_usage", return_value={"id": "claude"}),
             patch.object(API, "_codex_usage", return_value={"id": "codex"}),
             patch.object(API, "_grok_usage", return_value={"id": "grok"}),
+            patch.object(API, "_openrouter_usage", return_value={"id": "openrouter"}),
         ):
             snapshot = API.provider_usage_snapshot(force=True)
         setattr(API, "_CACHE_VALUE", None)
 
         self.assertEqual(
             [provider["id"] for provider in snapshot["providers"]],
-            ["nous", "claude", "codex", "grok"],
+            ["nous", "claude", "codex", "grok", "openrouter"],
         )
 
     def test_provider_collectors_run_in_parallel(self) -> None:
-        barrier = threading.Barrier(4, timeout=1)
+        barrier = threading.Barrier(5, timeout=1)
 
         def collect(provider_id):
             barrier.wait()
@@ -268,13 +341,14 @@ class ProviderSnapshotTests(unittest.TestCase):
             patch.object(API, "_claude_usage", side_effect=lambda: collect("claude")),
             patch.object(API, "_codex_usage", side_effect=lambda: collect("codex")),
             patch.object(API, "_grok_usage", side_effect=lambda: collect("grok")),
+            patch.object(API, "_openrouter_usage", side_effect=lambda: collect("openrouter")),
         ):
             snapshot = API.provider_usage_snapshot(force=True)
         setattr(API, "_CACHE_VALUE", None)
 
         self.assertEqual(
             [provider["id"] for provider in snapshot["providers"]],
-            ["nous", "claude", "codex", "grok"],
+            ["nous", "claude", "codex", "grok", "openrouter"],
         )
 
     def test_concurrent_force_refreshes_share_one_collection(self) -> None:
