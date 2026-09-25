@@ -73,6 +73,19 @@ const sdk = {
             { used_percent: 10, reset_at: new Date(Date.now() + 2 * 60 * 60_000).toISOString() },
             { used_percent: 80, reset_at: new Date(Date.now() + 60_000).toISOString() }
           ]
+        },
+        {
+          id: 'openrouter',
+          label: 'OpenRouter',
+          kind: 'balance',
+          available: true,
+          account: 'sk-or-v1-SHOULD-NOT-LEAK',
+          balance_amount: 9.82,
+          balance_currency: 'USD',
+          balance_total: 10,
+          display_used_percent: 1.8,
+          windows: [{ key: 'balance', used_percent: 1.8, detail: '$9.82 von $10.00' }],
+          details: ['Monat: $0.18']
         }
       ]
     },
@@ -177,7 +190,7 @@ const limitsElement = limitsPane.render()
 const limitsPage = limitsElement.type(limitsElement.props)
 assert.equal(limitsPage.type, 'div')
 assert.equal(limitsPage.props.children[0].props.children[0].props.children, 'Limits')
-assert.equal(limitsPage.props.children[1].props.children.length, 4)
+assert.equal(limitsPage.props.children[1].props.children.length, 5)
 const nousRowElement = limitsPage.props.children[1].props.children[0]
 const nousRow = nousRowElement.type(nousRowElement.props)
 assert.equal(nousRow.props.children[0].props.left, null)
@@ -221,6 +234,19 @@ assert.equal(grokRow.props.children[0].props.left, 90)
 const grokTabElement = grokRow.props.children[1]
 const grokTab = grokTabElement.type(grokTabElement.props)
 assert.match(grokTab.props.children.find(child => child.props?.key === 'reset').props.children, /^Reset in [12]h/)
+const openrouterRowElement = limitsPage.props.children[1].props.children[4]
+const openrouterRow = openrouterRowElement.type(openrouterRowElement.props)
+const openrouterRingElement = openrouterRow.props.children[0]
+assert.equal(openrouterRingElement.props.valueLabel, '$9.82')
+assert.equal(openrouterRingElement.props.unitLabel, 'von $10')
+const openrouterRing = openrouterRingElement.type(openrouterRingElement.props)
+assert.equal(openrouterRing.props['aria-label'], '$9.82 von $10')
+assert.doesNotMatch(openrouterRing.props['aria-label'], /%|sk-or/)
+const openrouterTabElement = openrouterRow.props.children[1]
+const openrouterTab = openrouterTabElement.type(openrouterTabElement.props)
+assert.equal(openrouterTab.props.children.find(child => child.props?.key === 'meta'), undefined)
+assert.equal(openrouterTab.props.children.find(child => child.props?.key === 'details').props.children, 'Monat: $0.18')
+assert.equal(JSON.stringify(openrouterTab).includes('sk-or'), false)
 const refreshButton = limitsPage.props.children[0].props.children[1]
 await refreshButton.props.onClick()
 const forceRefresh = restCalls.find(call => call.path === '/refresh')

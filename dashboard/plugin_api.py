@@ -36,6 +36,7 @@ _CACHE_REFRESHING = False
 _GROK_BILLING_CREDITS = "https://cli-chat-proxy.grok.com/v1/billing?format=credits"
 _GROK_BILLING_MONTHLY = "https://cli-chat-proxy.grok.com/v1/billing"
 _OPENROUTER_KEY_URL = "https://openrouter.ai/api/v1/key"
+_OPENROUTER_CREDITS_URL = "https://openrouter.ai/api/v1/credits"
 _OPENROUTER_ENV_VARS = ("OPENROUTER_API_KEY", "OPENROUTER_KEY")
 _GATEWAY_SERVICE = "hermes-gateway.service"
 _HERMES_RESTART_HELPER = Path(__file__).with_name("restart_helper.py")
@@ -186,6 +187,7 @@ def _provider_from_snapshot(
         "plan": getattr(snapshot, "plan", None),
         "windows": windows,
         "details": details,
+        "kind": "quota",
     }
 
 
@@ -274,6 +276,7 @@ def _parse_codex(payload: Optional[dict[str, Any]]) -> dict[str, Any]:
         "plan": plan.title() if plan else None,
         "windows": windows,
         "details": details,
+        "kind": "quota",
     }
 
 
@@ -381,6 +384,7 @@ def _parse_grok_payloads(credits_payload: Any, monthly_payload: Any) -> dict[str
         windows=windows,
         display_used_percent=display_percent,
         display_reset_at=_iso(period.get("end")),
+        kind="quota",
     )
     return result
 
@@ -423,11 +427,11 @@ def _select_openrouter_key() -> Optional[str]:
     return None
 
 
-def _parse_openrouter_payload(payload: Any) -> dict[str, Any]:
+def _parse_openrouter_payload(payload: Any, credits_payload: Any = None) -> dict[str, Any]:
     result = _unavailable("openrouter", "OpenRouter", "OpenRouter quota unavailable")
     data = payload.get("data") if isinstance(payload, dict) else None
     if not isinstance(data, dict):
-        return result
+        data = {}
 
     windows: list[dict[str, Any]] = []
     details: list[str] = []
@@ -436,48 +440,57 @@ def _parse_openrouter_payload(payload: Any) -> dict[str, Any]:
     limit = _number(data.get("limit"))
     remaining = _number(data.get("limit_remaining"))
 
-    if limit is not None and limit > 0 and remaining is not None:
-        # Key hat ein Credit-Limit: Ring zeigt verbrauchten Anteil davon.
+    # Kontoguthaben (/credits) ist die eigentliche Antwort auf "wie viel habe ich noch".
+    credits_data = credits_payload.get("data") if isinstance(credits_payload, dict) else None
+    total_credits = _number(credits_data.get("total_credits")) if isinstance(credits_data, dict) else None
+    total_usage = _number(credits_data.get("total_usage")) if isinstance(credits_data, dict) else None
+
+    if total_credits is not None and total_usage is not None and total_credits > 0:
+        balance = max(0.0, total_credits - total_usage)
+        used_percent = min(100.0, max(0.0, total_usage / total_credits * 100.0))
+        windows.append(
+            _window(
+                "balance",
+                "Guthaben",
+                used_percent,
+                None,
+                f"${balance:.2f} von ${total_credits:.2f}",
+            )
+        )
+        result["balance_amount"] = round(balance, 2)
+        result["balance_currency"] = "USD"
+        result["balance_total"] = round(total_credits, 2)
+    elif limit is not None and limit > 0 and remaining is not None:
+        # Kein Kontoguthaben abrufbar, aber der Key hat ein eigenes Credit-Limit.
         used_percent = min(100.0, max(0.0, (limit - remaining) / limit * 100.0))
         windows.append(
             _window(
                 "credits",
-                "Key credits",
+                "Key-Limit",
                 used_percent,
                 data.get("limit_reset"),
-                f"{remaining:.2f} / {limit:.2f} credits übrig",
+                f"${remaining:.2f} von ${limit:.2f}",
             )
         )
+        result["balance_amount"] = round(remaining, 2)
+        result["balance_currency"] = "USD"
+        result["balance_total"] = round(limit, 2)
     elif usage is not None:
-        # Unlimitierter Key: kein sinnvoller Prozentwert, nur Verbrauch anzeigen.
-        details.append(f"Verbraucht: {usage:.2f} credits (kein Key-Limit)")
-
-    free = data.get("free_model_daily_requests")
-    if isinstance(free, dict):
-        free_limit = _number(free.get("limit"))
-        free_used = _number(free.get("used"))
-        if free_limit is not None and free_limit > 0 and free_used is not None:
-            windows.append(
-                _window(
-                    "free-daily",
-                    "Free models (täglich)",
-                    min(100.0, free_used / free_limit * 100.0),
-                    None,
-                    f"{free_used:g} / {free_limit:g} Requests",
-                )
-            )
+        details.append(f"Verbraucht: ${usage:.2f}")
 
     for label, key in (("Heute", "usage_daily"), ("Woche", "usage_weekly"), ("Monat", "usage_monthly")):
         value = _number(data.get(key))
         if value is not None and value > 0:
-            details.append(f"{label}: {value:.2f} credits")
+            details.append(f"{label}: ${value:.2f}")
 
     if not windows and not details:
         return result
 
     result["available"] = True
     result["reason"] = None
-    result["account"] = data.get("label") or None
+    result["kind"] = "balance"
+    # Kein `label` aus der API: das ist der Name des API-Keys und gehoert nicht ins UI.
+    result["account"] = None
     result["plan"] = "Free tier" if data.get("is_free_tier") else "Paid"
     result["windows"] = windows
     result["details"] = details
@@ -491,18 +504,25 @@ def _openrouter_usage() -> dict[str, Any]:
     token = _select_openrouter_key()
     if not token:
         return _unavailable("openrouter", "OpenRouter", "OpenRouter API key is not configured")
+    headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
     try:
         with httpx.Client(timeout=15.0) as client:
-            response = client.get(
-                _OPENROUTER_KEY_URL,
-                headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
-                follow_redirects=False,
-            )
-        if response.status_code == 401:
-            return _unavailable("openrouter", "OpenRouter", "OpenRouter API key rejected")
-        if response.status_code != 200:
-            return _unavailable("openrouter", "OpenRouter", "OpenRouter endpoint unavailable")
-        return _parse_openrouter_payload(response.json())
+            response = client.get(_OPENROUTER_KEY_URL, headers=headers, follow_redirects=False)
+            if response.status_code == 401:
+                return _unavailable("openrouter", "OpenRouter", "OpenRouter API key rejected")
+            if response.status_code != 200:
+                return _unavailable("openrouter", "OpenRouter", "OpenRouter endpoint unavailable")
+            key_payload = response.json()
+            credits_payload = None
+            try:
+                credits_response = client.get(
+                    _OPENROUTER_CREDITS_URL, headers=headers, follow_redirects=False
+                )
+                if credits_response.status_code == 200:
+                    credits_payload = credits_response.json()
+            except Exception:
+                _LOGGER.debug("OpenRouter credits lookup failed", exc_info=True)
+        return _parse_openrouter_payload(key_payload, credits_payload)
     except Exception:
         _LOGGER.debug("OpenRouter usage collection failed", exc_info=True)
         return _unavailable("openrouter", "OpenRouter", "OpenRouter endpoint unavailable")
@@ -543,6 +563,7 @@ def _nous_usage() -> dict[str, Any]:
         "details": [str(detail) for detail in (snapshot.details if snapshot is not None else [])],
         "total_usable_credits": getattr(access, "total_usable_credits", None) if access else None,
         "paid_access": getattr(account, "paid_service_access", None),
+        "kind": "quota",
     }
 
 

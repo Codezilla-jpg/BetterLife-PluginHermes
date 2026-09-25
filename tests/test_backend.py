@@ -239,6 +239,27 @@ class NousUsageTests(unittest.TestCase):
 
 
 class OpenRouterUsageTests(unittest.TestCase):
+    def test_account_balance_reports_dollars_remaining(self) -> None:
+        key_payload = {
+            "data": {
+                "label": "sk-or-v1-SHOULD-NOT-LEAK",
+                "usage": 0.18,
+                "is_free_tier": False,
+            }
+        }
+        credits_payload = {"data": {"total_credits": 10.0, "total_usage": 0.18}}
+        result = API._parse_openrouter_payload(key_payload, credits_payload)
+
+        self.assertTrue(result["available"])
+        self.assertEqual(result["balance_amount"], 9.82)
+        self.assertEqual(result["balance_currency"], "USD")
+        self.assertEqual(result["balance_total"], 10.0)
+        self.assertEqual(result["kind"], "balance")
+        self.assertIsNone(result["account"])
+        self.assertEqual(result["windows"][0]["key"], "balance")
+        self.assertIn("$9.82", result["windows"][0]["detail"])
+        self.assertNotIn("sk-or", str(result))
+
     def test_key_with_credit_limit_reports_remaining(self) -> None:
         payload = {
             "data": {
@@ -254,7 +275,8 @@ class OpenRouterUsageTests(unittest.TestCase):
 
         self.assertTrue(result["available"])
         self.assertEqual(result["display_used_percent"], 75.0)
-        self.assertEqual(result["account"], "hermes-key")
+        self.assertEqual(result["balance_amount"], 12.5)
+        self.assertIsNone(result["account"])
         self.assertEqual(result["plan"], "Paid")
         self.assertEqual(result["windows"][0]["key"], "credits")
 
@@ -274,20 +296,7 @@ class OpenRouterUsageTests(unittest.TestCase):
         self.assertEqual(result["plan"], "Free tier")
         self.assertEqual(result["windows"], [])
         self.assertTrue(any("8.25" in detail for detail in result["details"]))
-
-    def test_free_model_requests_become_window(self) -> None:
-        payload = {
-            "data": {
-                "limit": None,
-                "limit_remaining": None,
-                "free_model_daily_requests": {"used": 5, "limit": 50, "remaining": 45},
-            }
-        }
-        result = API._parse_openrouter_payload(payload)
-
-        self.assertTrue(result["available"])
-        self.assertEqual(result["windows"][0]["key"], "free-daily")
-        self.assertEqual(result["windows"][0]["used_percent"], 10.0)
+        self.assertIsNone(result["account"])
 
     def test_malformed_payload_stays_unavailable(self) -> None:
         result = API._parse_openrouter_payload({"unexpected": True})

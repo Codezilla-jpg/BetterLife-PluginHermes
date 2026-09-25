@@ -72,6 +72,37 @@ const providerSummary = provider => {
   return { used: selected?.used ?? null, resetAt: selected?.window?.reset_at }
 }
 
+const money = (amount, currency) => {
+  const number = Number(amount)
+  if (!Number.isFinite(number)) return null
+  const text = number % 1 === 0 ? number.toFixed(0) : number.toFixed(2)
+  if (currency === 'USD') return `$${text}`
+  if (currency === 'EUR') return `${text} €`
+  return currency ? `${text} ${currency}` : text
+}
+
+const safeAccount = value => {
+  const text = String(value || '').trim()
+  if (!text || /sk-|api[_-]?key|bearer/i.test(text)) return null
+  return text
+}
+
+const windowLabel = window => {
+  const labels = {
+    'current-session': 'Session',
+    'current-week': 'Woche',
+    primary_window: 'Session',
+    secondary_window: 'Woche',
+    'grok-build': 'Grok'
+  }
+  return labels[window?.key] || window?.label || window?.key || 'Fenster'
+}
+
+const quotaWindows = provider =>
+  (Array.isArray(provider?.windows) ? provider.windows : [])
+    .filter(window => !String(window?.key || '').startsWith('model-'))
+    .slice(0, 2)
+
 const fetchUsage = (rest, force = false) =>
   force
     ? rest('/refresh', { method: 'POST', timeoutMs: 45_000 })
@@ -94,15 +125,20 @@ const iridescentGradient = left => {
   return `conic-gradient(from -90deg, ${stops.join(', ')}, var(--ui-stroke-quaternary) ${clamped.toFixed(2)}%)`
 }
 
-function UsageRing({ left, offline }) {
-  const percentage = left === null ? null : Math.round(left)
-  const unavailable = offline || percentage === null
-  const label = unavailable ? 'Nicht verfügbar' : 'übrig'
+function UsageRing({ left, offline, valueLabel = null, unitLabel = null }) {
+  const percentage = left === null || left === undefined ? null : Math.round(left)
+  const hasCustomValue = Boolean(valueLabel)
+  const unavailable = offline || (percentage === null && !hasCustomValue)
+  const label = unavailable ? 'Nicht verfügbar' : unitLabel || 'übrig'
   return jsx('div', {
     className: 'relative grid shrink-0 place-items-center',
     style: { width: '108px', height: '108px' },
     role: 'img',
-    'aria-label': unavailable ? label : `${percentage}% ${label}`,
+    'aria-label': unavailable
+      ? label
+      : hasCustomValue
+        ? `${valueLabel} ${label}`
+        : `${percentage}% ${label}`,
     children: [
       jsx('div', {
         key: 'ring',
@@ -121,20 +157,20 @@ function UsageRing({ left, offline }) {
           jsx('span', {
             key: 'percentage',
             className: 'font-semibold tabular-nums text-(--ui-text-primary)',
-            style: { fontSize: '1rem', lineHeight: 1 },
-            children: unavailable ? 'N/V' : `${percentage}%`
+            style: { fontSize: hasCustomValue && !unavailable ? '0.875rem' : '1rem', lineHeight: 1 },
+            children: unavailable ? 'N/V' : hasCustomValue ? valueLabel : `${percentage}%`
           }),
           jsx('span', {
             key: 'label',
             className: cn(
               'text-(--ui-text-quaternary)',
-              !unavailable && 'uppercase'
+              !unavailable && !hasCustomValue && 'uppercase'
             ),
             style: {
               marginTop: '2px',
               fontSize: unavailable ? '0.4375rem' : '0.5rem',
               lineHeight: 1,
-              letterSpacing: unavailable ? 'normal' : '0.12em'
+              letterSpacing: unavailable || hasCustomValue ? 'normal' : '0.12em'
             },
             children: label
           })
@@ -144,9 +180,55 @@ function UsageRing({ left, offline }) {
   })
 }
 
-function ProviderTab({ provider, resetAt }) {
-  const meta = [provider?.account, provider?.plan].filter(Boolean).join(' · ')
+function WindowBars({ windows }) {
+  if (windows.length < 2) return null
+  return jsx('div', {
+    key: 'windows',
+    className: 'mt-2 space-y-1.5',
+    children: windows.map(window => {
+      const used = clampPercent(window?.used_percent)
+      const left = percentLeft(used)
+      const hot = used !== null && used >= 80
+      return jsx('div', {
+        key: window.key || window.label,
+        children: [
+          jsx('div', {
+            key: 'meta',
+            className: 'flex items-center justify-between gap-2 text-[0.6875rem]',
+            children: [
+              jsx('span', {
+                key: 'name',
+                className: 'truncate text-(--ui-text-tertiary)',
+                children: windowLabel(window)
+              }),
+              jsx('span', {
+                key: 'value',
+                className: hot ? 'text-(--ui-text-primary)' : 'text-(--ui-text-quaternary)',
+                children: left === null ? '—' : `${Math.round(left)}%`
+              })
+            ]
+          }),
+          jsx('div', {
+            key: 'bar',
+            className: 'h-1 overflow-hidden rounded-full bg-(--ui-stroke-secondary)',
+            children: jsx('div', {
+              className: 'h-full bg-(--ui-accent)',
+              style: { width: `${Math.max(0, Math.min(100, left ?? 0))}%`, opacity: hot ? 1 : 0.7 }
+            })
+          })
+        ]
+      })
+    })
+  })
+}
+
+function ProviderTab({ provider, resetAt, hot = false, balance = false }) {
+  const meta = [safeAccount(provider?.account), provider?.plan].filter(Boolean).join(' · ')
   const reset = countdown(resetAt)
+  const windows = balance ? [] : quotaWindows(provider)
+  const details = (Array.isArray(provider?.details) ? provider.details : [])
+    .filter(detail => !/sk-|api[_-]?key|bearer/i.test(String(detail)))
+    .slice(0, 3)
   return jsx('div', {
     className: cn(
       'min-w-0 rounded-lg border border-(--ui-stroke-secondary)',
@@ -169,8 +251,19 @@ function ProviderTab({ provider, resetAt }) {
       reset
         ? jsx('div', {
             key: 'reset',
-            className: 'mt-0.5 truncate text-[0.6875rem] text-(--ui-text-quaternary)',
+            className: cn(
+              'mt-0.5 truncate text-[0.6875rem]',
+              hot ? 'font-medium text-(--ui-text-primary)' : 'text-(--ui-text-quaternary)'
+            ),
             children: `Reset in ${reset}`
+          })
+        : null,
+      windows.length > 1 ? jsx(WindowBars, { key: 'windows', windows }) : null,
+      details.length
+        ? jsx('div', {
+            key: 'details',
+            className: 'mt-1 truncate text-[0.6875rem] text-(--ui-text-quaternary)',
+            children: details.join(' · ')
           })
         : null,
       !provider?.available && provider?.reason
@@ -188,15 +281,28 @@ function ProviderTab({ provider, resetAt }) {
 function ProviderRow({ provider }) {
   const available = Boolean(provider?.available)
   const summary = providerSummary(provider)
+  const balanceAmount = Number(provider?.balance_amount)
+  const isBalance = provider?.kind === 'balance' || Number.isFinite(balanceAmount)
+  const valueLabel = isBalance ? money(balanceAmount, provider?.balance_currency) : null
+  const totalLabel = money(provider?.balance_total, provider?.balance_currency)
+  const hot = !isBalance && summary.used !== null && summary.used >= 80
   return jsx('div', {
     className: 'flex items-center gap-4',
     children: [
       jsx(UsageRing, {
         key: 'ring',
         left: available ? percentLeft(summary.used) : null,
-        offline: !available
+        offline: !available,
+        valueLabel: available ? valueLabel : null,
+        unitLabel: isBalance && totalLabel ? `von ${totalLabel}` : null
       }),
-      jsx(ProviderTab, { key: 'tab', provider, resetAt: summary.resetAt })
+      jsx(ProviderTab, {
+        key: 'tab',
+        provider,
+        resetAt: isBalance ? null : summary.resetAt,
+        hot,
+        balance: isBalance
+      })
     ]
   })
 }

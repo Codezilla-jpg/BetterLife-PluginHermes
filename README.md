@@ -26,6 +26,7 @@ Unified package (Hermes ≥ 0.21):
 - Claude: Anthropic-OAuth-Abo (`/api/oauth/usage`).
 - Codex: öffentliche Runtime-Credentials (`hermes_cli.auth_codex`) plus `/wham/usage`, Fallback `fetch_account_usage`.
 - Grok: `https://cli-chat-proxy.grok.com/v1/billing`.
+- OpenRouter: Kontoguthaben (`GET /api/v1/credits`), Anzeige in Dollar, kein Key-Name.
 
 Credentials bleiben im Hermes-Backend und werden nie an den Renderer übertragen.
 
