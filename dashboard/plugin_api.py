@@ -295,11 +295,17 @@ def _codex_usage() -> dict[str, Any]:
 
 
 def _claude_usage() -> dict[str, Any]:
+    # Limits kommen nur vom Claude-Code-Abo. Ein API-Key kann die Usage-API
+    # nicht beantworten und würde den OAuth-Token verdrängen.
+    saved_key = os.environ.pop("ANTHROPIC_API_KEY", None)
     try:
         snapshot = fetch_account_usage("anthropic")
     except Exception:
         _LOGGER.debug("Claude usage collection failed", exc_info=True)
         return _unavailable("claude", "Claude", "Claude quota unavailable")
+    finally:
+        if saved_key is not None:
+            os.environ["ANTHROPIC_API_KEY"] = saved_key
     result = _provider_from_snapshot(
         "claude",
         "Claude",

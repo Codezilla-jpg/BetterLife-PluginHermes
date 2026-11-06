@@ -203,7 +203,7 @@ assert.equal(nousRingValue.props.children[1].props.children, 'Nicht verfügbar')
 const nousTabElement = nousRow.props.children[1]
 const nousTab = nousTabElement.type(nousTabElement.props)
 const nousReason = nousTab.props.children.find(child => child.props?.key === 'reason')
-assert.equal(nousReason.props.children, 'Nicht verfügbar')
+assert.equal(nousReason.props.children, 'Nous quota unavailable')
 assert.equal(nousReason.props.title, 'Nous quota unavailable')
 const claudeRowElement = limitsPage.props.children[1].props.children[1]
 const claudeRow = claudeRowElement.type(claudeRowElement.props)

@@ -271,7 +271,7 @@ function ProviderTab({ provider, resetAt, hot = false, balance = false }) {
             key: 'reason',
             className: 'mt-0.5 truncate text-[0.6875rem] text-(--ui-text-quaternary)',
             title: String(provider.reason),
-            children: 'Nicht verfügbar'
+            children: String(provider.reason)
           })
         : null
     ].filter(Boolean)
